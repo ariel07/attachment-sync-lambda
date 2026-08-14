@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# SAM build artifacts
+.aws-sam/
+
+# SAM deploy config — can contain account ID/region, keep local
+samconfig.toml
+
+# Editor
+.vscode/

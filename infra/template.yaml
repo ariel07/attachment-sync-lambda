@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Attachment Sync Lambda - JSM to Jira Software mirrored-issue attachment sync.
+  Phase 1 scaffold: IAM execution role, API Gateway (HttpApi) webhook endpoint,
+  Lambda function definition. Handler logic is added in Phase 3.
+
+  ASSUMPTION (explicit, not verified against a user decision): this template
+  uses AWS::Serverless::HttpApi (API Gateway) rather than a Lambda Function URL,
+  because the source handoff doc's cost table itemizes API Gateway explicitly.
+  If a Function URL is preferred instead, this is a small, isolated change
+  (FunctionUrlConfig on the function replaces the HttpApi event) - flag if you
+  want that swapped before Phase 2.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment environment; used to scope resource names and the Secrets Manager secret.
+
+  JiraServiceAccountSecretArn:
+    Type: String
+    Description: >
+      Full ARN of the Secrets Manager secret holding the Jira service-account API token.
+      Must be created manually first (see docs/phase1-manual-steps.md) - this template
+      does not create the secret's contents, only grants scoped read access to it.
+    AllowedPattern: '^arn:aws:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    ConstraintDescription: Must be a valid Secrets Manager secret ARN.
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: python3.14
+    Architectures:
+      - x86_64
+    Tracing: Active
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref EnvironmentName
+        JIRA_SERVICE_ACCOUNT_SECRET_ARN: !Ref JiraServiceAccountSecretArn
+
+Resources:
+  AttachmentSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub attachment-sync-${EnvironmentName}
+      Description: Receives Jira webhook events and syncs attachments to the linked mirror issue.
+      CodeUri: ../src/
+      Handler: handler.lambda_handler
+      # Phase 3 will implement handler.py; Phase 1 only wires the scaffold so
+      # the infra can be reviewed/deployed independently of business logic.
+      Policies:
+        - Statement:
+            - Sid: ReadJiraServiceAccountSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref JiraServiceAccountSecretArn
+      Events:
+        JiraWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AttachmentSyncHttpApi
+            Path: /webhook/jira-attachment
+            Method: post
+
+  AttachmentSyncHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref EnvironmentName
+      # No CORS - this endpoint is server-to-server (Jira webhook), not browser-invoked.
+
+  AttachmentSyncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/attachment-sync-${EnvironmentName}
+      RetentionInDays: 30
+
+Outputs:
+  WebhookEndpoint:
+    Description: URL to register in Jira Settings > System > WebHooks
+    Value: !Sub https://${AttachmentSyncHttpApi}.execute-api.${AWS::Region}.amazonaws.com/${EnvironmentName}/webhook/jira-attachment
+
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt AttachmentSyncFunction.Arn
+
+  FunctionRoleArn:
+    Description: IAM execution role ARN (for reference/auditing)
+    Value: !GetAtt AttachmentSyncFunctionRole.Arn
