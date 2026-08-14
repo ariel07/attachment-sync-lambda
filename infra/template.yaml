@@ -52,6 +52,16 @@ Parameters:
     AllowedPattern: '^https://[a-zA-Z0-9.-]+\.atlassian\.net$'
     ConstraintDescription: Must be an https:// Atlassian Cloud URL with no trailing slash.
 
+  AllowedProjectKeys:
+    Type: String
+    Default: ''
+    Description: >
+      Phase 5 (multi-client-pair scaling): comma-separated list of JSM
+      project keys this Lambda is allowed to process, e.g. "JTT,ABB,BEE".
+      Optional defense-in-depth on top of the webhook's own JQL filter -
+      see docs/phase5-scaling-to-additional-pairs.md. Leave blank (default)
+      to disable the check entirely, matching pre-Phase-5 behavior.
+
 Globals:
   Function:
     Timeout: 30
@@ -66,6 +76,7 @@ Globals:
         JIRA_SERVICE_ACCOUNT_SECRET_ARN: !Ref JiraServiceAccountSecretArn
         JIRA_WEBHOOK_SIGNING_SECRET_ARN: !Ref JiraWebhookSigningSecretArn
         JIRA_BASE_URL: !Ref JiraBaseUrl
+        ALLOWED_PROJECT_KEYS: !Ref AllowedProjectKeys
 
 Resources:
   AttachmentSyncFunction:

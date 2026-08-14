@@ -30,6 +30,7 @@ from attachment_sync import (
     sync_new_attachment,
 )
 from jsm_mirror_link import AmbiguousMirrorLinkError
+from project_scope import is_allowed_project
 from signature import verify_signature
 
 logger = logging.getLogger()
@@ -41,6 +42,7 @@ def handle_webhook(
     headers: dict[str, str],
     webhook_signing_secret: str,
     jira_client: Any,
+    allowed_project_keys: list[str] | None = None,
 ) -> dict[str, Any]:
     """Core webhook handling logic. Returns an API Gateway HttpApi response dict.
 
@@ -55,6 +57,11 @@ def handle_webhook(
         JSM Mirror link on the issue) - Jira WILL retry a 5xx per its
         documented retry policy, which is desirable here since this
         indicates something worth re-attempting after investigation.
+
+    allowed_project_keys (Phase 5, optional): defense-in-depth source-project
+    allowlist, checked before any Jira API call. None means "not configured"
+    - no restriction, matching pre-Phase-5 behavior. See project_scope.py for
+    why this exists alongside (not instead of) the webhook's own JQL filter.
     """
     headers_lower = {k.lower(): v for k, v in headers.items()}
     received_signature = headers_lower.get("x-hub-signature")
@@ -84,6 +91,20 @@ def handle_webhook(
         )
         return {"statusCode": 400, "body": str(exc)}
 
+    if allowed_project_keys is not None and not is_allowed_project(issue_key, allowed_project_keys):
+        # Should not happen in normal operation - the webhook's own JQL
+        # filter is the primary scope control. Logged at WARNING (not INFO,
+        # unlike the routine not_attachment_change skip below) because
+        # hitting this path means the JQL filter and this allowlist have
+        # drifted out of sync and are worth investigating.
+        logger.warning(
+            "Rejected %s: project not in ALLOWED_PROJECT_KEYS allowlist", issue_key,
+        )
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"status": "skipped", "reason": "project_not_allowlisted", "source_issue": issue_key}),
+        }
+
     attachment_id = extract_attachment_id_from_webhook(webhook_body)
 
     if not changelog_has_attachment_addition(webhook_body):
@@ -109,6 +130,7 @@ def handle_webhook(
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """AWS Lambda entry point. Wires real Secrets Manager + JiraClient."""
     from jira_client import JiraClient
+    from project_scope import parse_allowed_project_keys
     from secrets import get_secret_json
 
     raw_body = event.get("body") or ""
@@ -123,4 +145,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         api_token=service_account["api_token"],
     )
 
-    return handle_webhook(raw_body, headers, webhook_signing_secret, jira_client)
+    # ALLOWED_PROJECT_KEYS is optional: unset means no allowlist restriction
+    # (pre-Phase-5 behavior). Set it when onboarding additional client pairs
+    # (Phase 5) - see docs/phase5-scaling-to-additional-pairs.md.
+    raw_allowlist = os.environ.get("ALLOWED_PROJECT_KEYS")
+    allowed_project_keys = parse_allowed_project_keys(raw_allowlist) if raw_allowlist else None
+
+    return handle_webhook(raw_body, headers, webhook_signing_secret, jira_client, allowed_project_keys)

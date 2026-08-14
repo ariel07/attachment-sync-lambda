@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 from dedupe_check import already_synced
 from jsm_mirror_link import find_mirror_issue_key, AmbiguousMirrorLinkError
+from project_scope import project_key_of
 
 
 class MalformedWebhookError(Exception):
@@ -134,16 +135,28 @@ def sync_new_attachment(
     """
     issue = jira_client.get_issue(jsm_issue_key, fields=["issuelinks", "attachment"])
     fields = issue.get("fields", {})
+    # Phase 5b: derived once, attached to every returned result below for
+    # CloudWatch Logs Insights filtering/grouping by client pair. Purely a
+    # log/observability field - never used for routing or access control
+    # (that's project_scope.is_allowed_project, applied earlier in
+    # handler.py, before this function is even called).
+    source_project = project_key_of(jsm_issue_key)
 
     mirror_key = find_mirror_issue_key(fields.get("issuelinks", []), link_type_name=link_type_name)
     if mirror_key is None:
-        return {"status": "skipped", "reason": "no_mirror_link", "source_issue": jsm_issue_key}
+        return {
+            "status": "skipped", "reason": "no_mirror_link",
+            "source_issue": jsm_issue_key, "source_project": source_project,
+        }
+
+    target_project = project_key_of(mirror_key)
 
     attachments = fields.get("attachment", [])
     if not attachments:
         return {
             "status": "skipped", "reason": "no_attachments",
-            "source_issue": jsm_issue_key, "target_issue": mirror_key,
+            "source_issue": jsm_issue_key, "source_project": source_project,
+            "target_issue": mirror_key, "target_project": target_project,
         }
 
     fallback_used = False
@@ -152,7 +165,8 @@ def sync_new_attachment(
         if target_attachment is None:
             return {
                 "status": "skipped", "reason": "attachment_not_found",
-                "source_issue": jsm_issue_key, "target_issue": mirror_key,
+                "source_issue": jsm_issue_key, "source_project": source_project,
+                "target_issue": mirror_key, "target_project": target_project,
                 "attachment_id": attachment_id,
             }
     else:
@@ -177,7 +191,8 @@ def sync_new_attachment(
     if already_synced(mirror_key, target_attachment["filename"], target_attachment["size"], lookup):
         return {
             "status": "skipped", "reason": "already_synced",
-            "source_issue": jsm_issue_key, "target_issue": mirror_key,
+            "source_issue": jsm_issue_key, "source_project": source_project,
+            "target_issue": mirror_key, "target_project": target_project,
             "attachment_id": target_attachment["id"], "filename": target_attachment["filename"],
         }
     # ---------------------------------------------------------------------
@@ -193,7 +208,9 @@ def sync_new_attachment(
     return {
         "status": "synced",
         "source_issue": jsm_issue_key,
+        "source_project": source_project,
         "target_issue": mirror_key,
+        "target_project": target_project,
         "attachment_id": target_attachment["id"],
         "filename": target_attachment["filename"],
         "fallback_used": fallback_used,

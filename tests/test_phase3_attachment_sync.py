@@ -154,6 +154,50 @@ def test_sync_new_attachment_skips_when_attachment_id_not_found():
     assert client.upload_calls == []
 
 
+# --- Phase 5b: source_project / target_project fields for observability ----
+# Added so CloudWatch Logs Insights queries can filter/group by client pair
+# (e.g. "how many syncs for ABB this week") without parsing issue keys out
+# of source_issue/target_issue by hand - flagged as a known gap in
+# docs/phase5-scaling-to-additional-pairs.md before this was built.
+
+def test_synced_result_includes_source_and_target_project():
+    from attachment_sync import sync_new_attachment
+
+    client = FakeJiraClient(_issue_with_links_and_attachments())
+    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+
+    assert result["source_project"] == "JTT"
+    assert result["target_project"] == "JJST"
+
+
+def test_skipped_no_mirror_link_result_includes_source_project_only():
+    # No target_issue is resolved on this path, so there's nothing to
+    # derive target_project from - must not be present, not an empty string.
+    from attachment_sync import sync_new_attachment
+
+    issue = {"key": "JTT-999", "fields": {"issuelinks": [], "attachment": []}}
+    client = FakeJiraClient(issue)
+    result = sync_new_attachment(client, jsm_issue_key="JTT-999", attachment_id=None)
+
+    assert result["source_project"] == "JTT"
+    assert "target_project" not in result
+
+
+def test_skipped_already_synced_result_includes_both_projects():
+    from attachment_sync import sync_new_attachment
+
+    target_with_existing = {
+        "fields": {"attachment": [{"filename": "image-20260812-021129.png", "size": 39183}]}
+    }
+    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_with_existing)
+    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "already_synced"
+    assert result["source_project"] == "JTT"
+    assert result["target_project"] == "JJST"
+
+
 def test_sync_new_attachment_skips_when_no_attachments_at_all():
     from attachment_sync import sync_new_attachment
 

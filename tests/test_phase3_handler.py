@@ -201,3 +201,67 @@ def test_handle_webhook_skips_non_attachment_updates_without_calling_jira_api():
     assert result["reason"] == "not_attachment_change"
     assert client.upload_calls == []
     assert client.get_issue_calls == []  # must skip BEFORE any Jira API call
+
+
+# --- Phase 5: multi-client-pair allowlist guard ----------------------------
+# handle_webhook gained an optional allowed_project_keys kwarg, defaulting to
+# None (no restriction) so every test above - written before Phase 5 existed
+# - continues to pass unchanged. See project_scope.py module docstring for
+# why this guard exists alongside (not instead of) the webhook's own JQL
+# filter.
+
+def test_handle_webhook_skips_issue_outside_allowlist_before_any_jira_call():
+    from handler import handle_webhook
+
+    body = json.dumps(_webhook_body(issue_key="ZZZ-1", include_attachment_change=True))
+    signature = compute_x_hub_signature(SECRET, body)
+    headers = {"X-Hub-Signature": signature}
+    client = FakeJiraClient(_issue_with_mirror_and_attachment())
+
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        allowed_project_keys=["JTT", "ABB", "BEE"],
+    )
+
+    assert response["statusCode"] == 200
+    result = json.loads(response["body"])
+    assert result["status"] == "skipped"
+    assert result["reason"] == "project_not_allowlisted"
+    assert client.get_issue_calls == []  # must skip BEFORE any Jira API call
+
+
+def test_handle_webhook_processes_issue_inside_allowlist():
+    from handler import handle_webhook
+
+    body = json.dumps(_webhook_body(issue_key="JTT-102"))
+    signature = compute_x_hub_signature(SECRET, body)
+    headers = {"X-Hub-Signature": signature}
+    client = FakeJiraClient(_issue_with_mirror_and_attachment())
+
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        allowed_project_keys=["JTT", "ABB", "BEE"],
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"])["status"] == "synced"
+
+
+def test_handle_webhook_skips_allowlist_check_when_not_configured():
+    """Backward compatibility: an omitted/None allowed_project_keys means no
+    restriction, matching pre-Phase-5 behavior for any deployment that
+    hasn't set ALLOWED_PROJECT_KEYS yet."""
+    from handler import handle_webhook
+
+    body = json.dumps(_webhook_body(issue_key="JTT-102"))
+    signature = compute_x_hub_signature(SECRET, body)
+    headers = {"X-Hub-Signature": signature}
+    client = FakeJiraClient(_issue_with_mirror_and_attachment())
+
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        allowed_project_keys=None,
+    )
+
+    assert response["statusCode"] == 200
+    assert json.loads(response["body"])["status"] == "synced"
