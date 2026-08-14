@@ -17,14 +17,27 @@ SECRET = "test-webhook-signing-secret"
 
 
 class FakeJiraClient:
-    def __init__(self, issue_data: dict):
+    """target_issue_data models the separate get_issue call sync_new_attachment
+    now makes against the mirror issue (Phase 4 dedupe check). Defaults to
+    an empty attachment list so this file's existing tests - none of which
+    care about dedupe - continue exercising the "not a duplicate" path
+    unchanged."""
+
+    def __init__(self, issue_data: dict, target_issue_data: dict | None = None):
         self._issue_data = issue_data
+        self._target_issue_data = (
+            target_issue_data
+            if target_issue_data is not None
+            else {"fields": {"attachment": []}}
+        )
         self.get_issue_calls: list[dict] = []
         self.upload_calls: list[dict] = []
 
     def get_issue(self, issue_key, fields):
         self.get_issue_calls.append({"issue_key": issue_key, "fields": fields})
-        return self._issue_data
+        if issue_key == self._issue_data.get("key"):
+            return self._issue_data
+        return self._target_issue_data
 
     def download_attachment(self, content_url):
         return b"fake-bytes"
@@ -50,6 +63,7 @@ def _issue_with_mirror_and_attachment():
                     "id": "31711",
                     "filename": "image.png",
                     "created": "2026-08-12T10:11:33.495+0800",
+                    "size": 39183,
                     "mimeType": "image/png",
                     "content": "https://x/attachment/content/31711",
                 }

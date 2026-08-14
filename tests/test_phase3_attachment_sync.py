@@ -34,18 +34,37 @@ def _load_fixture(name: str) -> dict:
 
 class FakeJiraClient:
     """Records calls; returns pre-programmed data. No network, no requests
-    dependency needed for these tests."""
+    dependency needed for these tests.
 
-    def __init__(self, issue_data: dict, download_bytes: bytes = b"fake-bytes"):
+    target_issue_data models the SEPARATE get_issue call sync_new_attachment
+    now makes against the mirror issue (Phase 4 dedupe check). Defaults to
+    an empty attachment list so every existing test in this file - none of
+    which cares about dedupe - continues to exercise the "not a duplicate"
+    path with no changes required.
+    """
+
+    def __init__(
+        self,
+        issue_data: dict,
+        download_bytes: bytes = b"fake-bytes",
+        target_issue_data: dict | None = None,
+    ):
         self._issue_data = issue_data
         self._download_bytes = download_bytes
+        self._target_issue_data = (
+            target_issue_data
+            if target_issue_data is not None
+            else {"fields": {"attachment": []}}
+        )
         self.get_issue_calls: list[dict] = []
         self.download_calls: list[str] = []
         self.upload_calls: list[dict] = []
 
     def get_issue(self, issue_key: str, fields: list[str]) -> dict[str, Any]:
         self.get_issue_calls.append({"issue_key": issue_key, "fields": fields})
-        return self._issue_data
+        if issue_key == self._issue_data.get("key"):
+            return self._issue_data
+        return self._target_issue_data
 
     def download_attachment(self, content_url: str) -> bytes:
         self.download_calls.append(content_url)
@@ -179,3 +198,72 @@ def test_extract_attachment_id_from_webhook_when_present():
 
     without_id = {"timestamp": 123, "webhookEvent": "attachment_created", "issue": {"key": "JTT-1"}}
     assert extract_attachment_id_from_webhook(without_id) is None
+
+
+# --- Phase 4: loop guard / idempotency, integrated into sync_new_attachment ---
+# See docs/phase3-core-logic.md "Known gaps carried forward" for why this
+# wasn't part of Phase 3, and dedupe_check.py for the filename+size
+# strategy's own unit tests (this file only tests the integration point).
+
+def test_sync_new_attachment_skips_when_already_synced():
+    """The target issue already has an attachment with matching filename
+    and size - this is a duplicate webhook delivery (or retry) for an
+    attachment already mirrored. Must skip, not re-upload."""
+    from attachment_sync import sync_new_attachment
+
+    # Target (mirror) issue already has the same file, same size, as the
+    # source's 31711 attachment (image-20260812-021129.png, 39183 bytes -
+    # see tests/fixtures/jtt_102_attachments.json).
+    target_issue_data = {
+        "fields": {
+            "attachment": [
+                {"filename": "image-20260812-021129.png", "size": 39183},
+            ]
+        }
+    }
+    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_issue_data)
+
+    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+
+    assert result["status"] == "skipped"
+    assert result["reason"] == "already_synced"
+    assert result["target_issue"] == "JJST-4"
+    assert client.upload_calls == []  # must not re-upload
+    assert client.download_calls == []  # must not even download - skip before that
+
+
+def test_sync_new_attachment_proceeds_when_target_has_different_attachments():
+    """Target issue has attachments, but none match this one by
+    filename+size - not a duplicate, sync should proceed normally.
+    (This is effectively the existing happy-path test with an explicit,
+    non-empty target_issue_data, to confirm the dedupe check doesn't
+    false-positive on an unrelated existing attachment.)"""
+    from attachment_sync import sync_new_attachment
+
+    target_issue_data = {
+        "fields": {
+            "attachment": [
+                {"filename": "unrelated-file.pdf", "size": 999},
+            ]
+        }
+    }
+    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_issue_data)
+
+    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+
+    assert result["status"] == "synced"
+    assert len(client.upload_calls) == 1
+
+
+def test_sync_new_attachment_dedupe_check_uses_mirror_key_not_source_key():
+    """The dedupe check's second get_issue call must target the MIRROR
+    issue (JJST-4), not the source JSM issue (JTT-102) again - confirms
+    the integration point queries the right issue for existing
+    attachments, not accidentally re-checking the source."""
+    from attachment_sync import sync_new_attachment
+
+    client = FakeJiraClient(_issue_with_links_and_attachments())
+    sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+
+    issue_keys_queried = [call["issue_key"] for call in client.get_issue_calls]
+    assert issue_keys_queried == ["JTT-102", "JJST-4"]

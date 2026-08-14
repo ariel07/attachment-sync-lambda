@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from dedupe_check import already_synced
 from jsm_mirror_link import find_mirror_issue_key, AmbiguousMirrorLinkError
 
 
@@ -26,6 +27,28 @@ class _JiraClientProtocol(Protocol):
     def get_issue(self, issue_key: str, fields: list[str]) -> dict[str, Any]: ...
     def download_attachment(self, content_url: str) -> bytes: ...
     def upload_attachment(self, issue_key: str, filename: str, content: bytes, mime_type: str) -> Any: ...
+
+
+class _AttachmentListLookup:
+    """Adapts an already-fetched Jira attachment list (the target issue's
+    `fields.attachment`, from a get_issue call this function already has to
+    make) to the AttachmentLookup protocol expected by
+    dedupe_check.already_synced.
+
+    Deliberately does NOT make its own API call - the data was already
+    fetched as part of resolving the target issue below, so wrapping it here
+    avoids a redundant round trip. See dedupe_check.py for why filename+size
+    (not a persisted attachment-id table) was chosen as the dedupe strategy.
+    """
+
+    def __init__(self, attachments: list[dict[str, Any]]) -> None:
+        # "filename" and "size" are both confirmed fields on the attachment
+        # object per tests/fixtures/jtt_102_attachments.json (captured live,
+        # same fixture already trusted elsewhere in this module).
+        self._pairs = [(a["filename"], a["size"]) for a in attachments]
+
+    def get_target_attachments(self, issue_key: str) -> list[tuple[str, int]]:
+        return self._pairs
 
 
 def extract_issue_key_from_webhook(webhook_body: dict[str, Any]) -> str:
@@ -102,7 +125,8 @@ def sync_new_attachment(
       - "synced": sync succeeded; result includes source_issue, target_issue,
         attachment_id, filename, and fallback_used (bool).
       - "skipped": sync intentionally not performed; result includes "reason"
-        (one of: "no_mirror_link", "no_attachments", "attachment_not_found").
+        (one of: "no_mirror_link", "no_attachments", "attachment_not_found",
+        "already_synced").
 
     Never raises on expected "nothing to do" conditions - those are skips,
     not errors. Does raise AmbiguousMirrorLinkError if the issue is
@@ -137,6 +161,26 @@ def sync_new_attachment(
         # strings for this purpose since the offset format is consistent.
         target_attachment = max(attachments, key=lambda a: a.get("created", ""))
         fallback_used = True
+
+    # --- Phase 4: loop guard / idempotency -----------------------------
+    # Prevents re-uploading an attachment that's already on the mirror -
+    # covers both Jira's documented webhook retry behavior (up to 5
+    # retries on failure) and a duplicate attachment_created event for
+    # the same file. Filename+size dedupe strategy chosen over a
+    # persisted attachment-id table; see dedupe_check.py module
+    # docstring for the accepted trade-off (a live REST lookup, not an
+    # atomic compare-and-set).
+    target_issue = jira_client.get_issue(mirror_key, fields=["attachment"])
+    target_attachments = target_issue.get("fields", {}).get("attachment", [])
+    lookup = _AttachmentListLookup(target_attachments)
+
+    if already_synced(mirror_key, target_attachment["filename"], target_attachment["size"], lookup):
+        return {
+            "status": "skipped", "reason": "already_synced",
+            "source_issue": jsm_issue_key, "target_issue": mirror_key,
+            "attachment_id": target_attachment["id"], "filename": target_attachment["filename"],
+        }
+    # ---------------------------------------------------------------------
 
     content_bytes = jira_client.download_attachment(target_attachment["content"])
     jira_client.upload_attachment(
