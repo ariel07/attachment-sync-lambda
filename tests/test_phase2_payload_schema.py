@@ -1,5 +1,16 @@
 """Phase 2 tests: webhook payload envelope schema.
 
+SUPERSEDED BY A LIVE FINDING IN PHASE 3 - kept for the historical record,
+not deleted, because it's still an accurate schema for what attachment_created
+actually contains. What changed: a real captured attachment_created payload
+(icxeed.atlassian.net, JTT-102, attachment id 31804) revealed this event has
+NO issue reference at all - not "issue" key, nothing linking it to a ticket.
+The Lambda was switched to jira:issue_updated instead (see
+tests/test_phase3_changelog_detection.py and docs/phase3-webhook-event-pivot.md
+for the full story). This file's schema below is still correct for
+attachment_created's shape - it's just not the event this Lambda listens for
+anymore.
+
 Source of truth: https://developer.atlassian.com/cloud/jira/platform/webhooks/
 ("Executing a webhook" / "Webhook payload" sections), fetched and reviewed
 directly rather than assumed from training data.

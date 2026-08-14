@@ -24,6 +24,7 @@ from typing import Any
 
 from attachment_sync import (
     MalformedWebhookError,
+    changelog_has_attachment_addition,
     extract_attachment_id_from_webhook,
     extract_issue_key_from_webhook,
     sync_new_attachment,
@@ -65,16 +66,35 @@ def handle_webhook(
     try:
         webhook_body = json.loads(raw_body)
     except json.JSONDecodeError:
-        logger.error("Rejected webhook: body is not valid JSON")
+        logger.error("Rejected webhook: body is not valid JSON. Raw body: %s", raw_body)
         return {"statusCode": 400, "body": "Invalid JSON body"}
 
+    # TEMPORARY diagnostic logging (Phase 2/3 payload-shape gap): log the full
+    # parsed body whenever we're about to fail on it, so a real captured
+    # payload can be pulled from CloudWatch and used to fix extraction logic
+    # with verified data instead of another guess. Remove once
+    # tests/test_phase2_payload_schema.py's skipped test is un-skipped against
+    # a real captured fixture.
     try:
         issue_key = extract_issue_key_from_webhook(webhook_body)
     except MalformedWebhookError as exc:
-        logger.error("Rejected webhook: %s", exc)
+        logger.error(
+            "Rejected webhook: %s | FULL PARSED BODY FOR DIAGNOSIS: %s",
+            exc, json.dumps(webhook_body),
+        )
         return {"statusCode": 400, "body": str(exc)}
 
     attachment_id = extract_attachment_id_from_webhook(webhook_body)
+
+    if not changelog_has_attachment_addition(webhook_body):
+        # jira:issue_updated fires for EVERY field change on matching issues,
+        # not just attachments. This is expected and frequent - log at INFO,
+        # not ERROR, and skip cheaply before any Jira API call.
+        logger.info("Skipping %s: update did not add an attachment", issue_key)
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"status": "skipped", "reason": "not_attachment_change", "source_issue": issue_key}),
+        }
 
     try:
         result = sync_new_attachment(jira_client, jsm_issue_key=issue_key, attachment_id=attachment_id)

@@ -12,3 +12,7 @@ samconfig.toml
 
 # Editor
 .vscode/
+
+# Local secret files - never commit, values already live in AWS Secrets Manager
+jira-webhook-secret.txt
+secret-1.txt

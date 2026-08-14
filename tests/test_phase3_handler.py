@@ -19,9 +19,11 @@ SECRET = "test-webhook-signing-secret"
 class FakeJiraClient:
     def __init__(self, issue_data: dict):
         self._issue_data = issue_data
+        self.get_issue_calls: list[dict] = []
         self.upload_calls: list[dict] = []
 
     def get_issue(self, issue_key, fields):
+        self.get_issue_calls.append({"issue_key": issue_key, "fields": fields})
         return self._issue_data
 
     def download_attachment(self, content_url):
@@ -56,12 +58,29 @@ def _issue_with_mirror_and_attachment():
     }
 
 
-def _webhook_body(issue_key="JTT-102"):
-    return {
+def _webhook_body(issue_key="JTT-102", include_attachment_change=True):
+    """Builds a jira:issue_updated payload - the event this Lambda is now
+    registered for (see attachment_sync.changelog_has_attachment_addition
+    docstring for why attachment_created was abandoned: its real payload,
+    captured live from icxeed.atlassian.net, has no issue reference at all)."""
+    body = {
         "timestamp": 1735689600000,
-        "webhookEvent": "attachment_created",
+        "webhookEvent": "jira:issue_updated",
         "issue": {"id": "1", "key": issue_key, "self": "https://x/issue/1", "fields": {}},
     }
+    if include_attachment_change:
+        body["changelog"] = {
+            "items": [
+                {"field": "Attachment", "from": None, "to": "31711", "fromString": None, "toString": "image.png"}
+            ]
+        }
+    else:
+        body["changelog"] = {
+            "items": [
+                {"field": "status", "from": "1", "to": "2", "fromString": "Open", "toString": "In Progress"}
+            ]
+        }
+    return body
 
 
 def test_handle_webhook_rejects_missing_signature():
@@ -135,7 +154,7 @@ def test_handle_webhook_returns_200_on_skip_no_mirror_link():
     """A skip is not a failure - Jira should see 200 so it doesn't retry."""
     from handler import handle_webhook
 
-    body = json.dumps(_webhook_body(issue_key="JTT-999"))
+    body = json.dumps(_webhook_body(issue_key="JTT-999", include_attachment_change=True))
     signature = compute_x_hub_signature(SECRET, body)
     headers = {"X-Hub-Signature": signature}
     unlinked_issue = {"key": "JTT-999", "fields": {"issuelinks": [], "attachment": []}}
@@ -147,3 +166,24 @@ def test_handle_webhook_returns_200_on_skip_no_mirror_link():
     result = json.loads(response["body"])
     assert result["status"] == "skipped"
     assert result["reason"] == "no_mirror_link"
+
+
+def test_handle_webhook_skips_non_attachment_updates_without_calling_jira_api():
+    """The most common event this Lambda will receive: an issue update that
+    is NOT an attachment addition (status change, comment, field edit).
+    Must skip cheaply, before any get_issue call - not just before upload."""
+    from handler import handle_webhook
+
+    body = json.dumps(_webhook_body(issue_key="JTT-102", include_attachment_change=False))
+    signature = compute_x_hub_signature(SECRET, body)
+    headers = {"X-Hub-Signature": signature}
+    client = FakeJiraClient(_issue_with_mirror_and_attachment())
+
+    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+
+    assert response["statusCode"] == 200
+    result = json.loads(response["body"])
+    assert result["status"] == "skipped"
+    assert result["reason"] == "not_attachment_change"
+    assert client.upload_calls == []
+    assert client.get_issue_calls == []  # must skip BEFORE any Jira API call

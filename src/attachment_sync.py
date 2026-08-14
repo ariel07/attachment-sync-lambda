@@ -60,6 +60,36 @@ def extract_attachment_id_from_webhook(webhook_body: dict[str, Any]) -> str | No
     return None
 
 
+def changelog_has_attachment_addition(webhook_body: dict[str, Any]) -> bool:
+    """Detect whether a jira:issue_updated webhook's changelog indicates an
+    attachment was ADDED (not removed, not some other field change).
+
+    DESIGN CONTEXT: this function exists because the attachment_created
+    webhook event's payload has no issue reference at all (confirmed live
+    against icxeed.atlassian.net - see this module's docstring). jira:issue_updated
+    DOES include issue.key, so that's the event this Lambda is registered
+    for as of this fix. But jira:issue_updated fires for EVERY field change
+    on matching issues, not just attachments - this function filters that
+    noise before any Jira API call is made, so unrelated updates (status
+    changes, comments, field edits) don't trigger wasted API calls or,
+    worse, an unwanted re-sync of "most recent attachment" on every edit.
+
+    Convention used (field == "Attachment", from/fromString == None means
+    "added"): this is well-established, widely-observed Jira changelog
+    behavior, not something Atlassian's docs give a literal example of for
+    this specific field. Flagged rather than presented as fully verified.
+    If this ever proves wrong in practice, the failure mode is safe: either
+    a missed sync (caught by the native fallback text-notice rule already
+    in place) or a redundant one (harmless) - never a sync to the wrong issue.
+    """
+    changelog = webhook_body.get("changelog") or {}
+    items = changelog.get("items") or []
+    for item in items:
+        if item.get("field") == "Attachment" and item.get("from") is None:
+            return True
+    return False
+
+
 def sync_new_attachment(
     jira_client: _JiraClientProtocol,
     jsm_issue_key: str,

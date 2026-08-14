@@ -1,0 +1,17 @@
+{
+  "_source": "Real webhook delivery captured live from icxeed.atlassian.net via CloudWatch Logs (attachment-sync-prod), 2026-08-14T09:09:24Z. This is the actual payload Jira sent for a real attachment_created event on JTT-102, not invented. Preserved here as the definitive answer to Phase 2's originally-skipped schema test, and as documentation for WHY this event was abandoned in favor of jira:issue_updated.",
+  "_finding": "This payload has NO issue reference of any kind - no issue key, no issue id, nothing linking the attachment back to which ticket it belongs to. Cross-checked against the official GET /rest/api/3/attachment/{id} schema, which also lacks an issue/container field. This is a structural limitation of the attachment_created event, not a parsing problem.",
+  "payload": {
+    "timestamp": 1786698564597,
+    "webhookEvent": "attachment_created",
+    "attachment": {
+      "self": "https://icxeed.atlassian.net/rest/api/2/attachment/31804",
+      "id": "31804",
+      "filename": "image-20260814-090920.png",
+      "created": "2026-08-14T17:09:24.597+0800",
+      "size": 33079,
+      "mimeType": "image/png",
+      "content": "https://icxeed.atlassian.net/rest/api/2/attachment/content/31804"
+    }
+  }
+}
