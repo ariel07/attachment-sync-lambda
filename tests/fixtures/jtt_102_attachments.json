@@ -1,0 +1,25 @@
+{
+  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, JTT-102, 2026-08-14. This is real, not invented. Trimmed to the fields the sync logic needs.",
+  "attachment": [
+    {
+      "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/31711",
+      "id": "31711",
+      "filename": "image-20260812-021129.png",
+      "created": "2026-08-12T10:11:33.495+0800",
+      "size": 39183,
+      "mimeType": "image/png",
+      "content": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/content/31711",
+      "thumbnail": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/thumbnail/31711"
+    },
+    {
+      "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/31758",
+      "id": "31758",
+      "filename": "Jira (3).html",
+      "created": "2026-08-13T22:53:01.265+0800",
+      "size": 543457,
+      "mimeType": "text/html",
+      "content": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/content/31758"
+    }
+  ],
+  "_note": "The second fixture entry (Jira (3).html) deliberately has NO thumbnail field - confirmed live that non-image attachments omit it. Any code assuming thumbnail is always present will break on this fixture."
+}

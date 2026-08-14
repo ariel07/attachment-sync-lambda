@@ -1,0 +1,10 @@
+# boto3/botocore are NOT listed here - AWS Lambda's Python runtimes ship
+# them preinstalled (confirmed: AWS Lambda Python 3.14 runtime preinstalled
+# package list includes boto3/botocore). Listing them here would bloat the
+# deployment package for no benefit.
+#
+# requests IS needed - it's what makes multipart/form-data attachment
+# uploads to Jira trivial (per the original handoff doc's own rationale for
+# choosing Lambda over native automation: "Multipart handling is trivial in
+# a real script").
+requests>=2.31.0,<3.0.0

@@ -5,16 +5,16 @@ request body, sent as `X-Hub-Signature: sha256=<hex>` (WebSub format). Atlassian
 publishes an official test vector for implementers to self-check against:
 https://developer.atlassian.com/cloud/jira/platform/webhooks/#secure-admin-webhooks
 
-This test does not exercise Phase 3's handler (that logic doesn't exist yet).
-It exists to lock in, before any handler code is written, that our planned
-verification approach (Python's stdlib `hmac` + `hashlib.sha256`) produces the
-exact signature Atlassian says it will send - so Phase 3 can implement against
-a pre-validated approach instead of discovering a mismatch after the fact.
+This test does not exercise Phase 3's handler in isolation. It originally
+defined its own reference implementation before src/signature.py existed;
+now that src/signature.py exists (Phase 3), this test imports from there
+directly, so a regression in the real production code is caught here too.
 """
 from __future__ import annotations
 
-import hashlib
 import hmac
+
+from signature import compute_x_hub_signature
 
 
 # Values published verbatim in Atlassian's Jira Cloud webhooks documentation.
@@ -25,22 +25,6 @@ JIRA_DOCUMENTED_TEST_VECTOR = {
         "sha256=a4771c39fbe90f317c7824e83ddef3caae9cb3d976c214ace1f2937e133263c9"
     ),
 }
-
-
-def compute_x_hub_signature(secret: str, raw_body: str) -> str:
-    """Mirrors the exact verification approach Phase 3's handler will use.
-
-    Kept here (not yet in src/) deliberately: this is a pre-validated reference
-    implementation, not the production handler. Phase 3 will move equivalent
-    logic into src/handler.py once webhook parsing exists, with this test
-    updated to import from there instead of duplicating the logic.
-    """
-    digest = hmac.new(
-        secret.encode("utf-8"),
-        msg=raw_body.encode("utf-8"),
-        digestmod=hashlib.sha256,
-    ).hexdigest()
-    return f"sha256={digest}"
 
 
 def test_hmac_signature_matches_atlassian_documented_test_vector():

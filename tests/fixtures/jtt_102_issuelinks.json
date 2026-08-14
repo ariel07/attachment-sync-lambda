@@ -1,0 +1,27 @@
+{
+  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, JTT-102, 2026-08-14. This is real, not invented.",
+  "issuelinks": [
+    {
+      "id": "11789",
+      "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/issueLink/11789",
+      "type": {
+        "id": "10012",
+        "name": "JSM Mirror",
+        "inward": "is mirrored by",
+        "outward": "mirrors",
+        "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/issueLinkType/10012"
+      },
+      "inwardIssue": {
+        "id": "32541",
+        "key": "JJST-4",
+        "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/issue/32541",
+        "fields": {
+          "summary": "comment-sync rule TEST - FIXED",
+          "status": {"name": "To Do"},
+          "issuetype": {"name": "Task"}
+        }
+      }
+    }
+  ],
+  "unlinked_issuelinks_example": []
+}

@@ -2,8 +2,10 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Attachment Sync Lambda - JSM to Jira Software mirrored-issue attachment sync.
-  Phase 1 scaffold: IAM execution role, API Gateway (HttpApi) webhook endpoint,
-  Lambda function definition. Handler logic is added in Phase 3.
+  Phase 3: full sync logic implemented (webhook signature verification,
+  JSM Mirror link resolution, attachment download/re-upload). See
+  src/handler.py, src/attachment_sync.py, src/jsm_mirror_link.py,
+  src/jira_client.py, src/signature.py, src/secrets.py.
 
   ASSUMPTION (explicit, not verified against a user decision): this template
   uses AWS::Serverless::HttpApi (API Gateway) rather than a Lambda Function URL,
@@ -31,6 +33,25 @@ Parameters:
     AllowedPattern: '^arn:aws:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
     ConstraintDescription: Must be a valid Secrets Manager secret ARN.
 
+  JiraWebhookSigningSecretArn:
+    Type: String
+    Description: >
+      Full ARN of the Secrets Manager secret holding the Jira webhook HMAC signing
+      secret (used to verify the X-Hub-Signature header per Atlassian's documented
+      WebSub-based signing scheme: https://developer.atlassian.com/cloud/jira/platform/webhooks/#secure-admin-webhooks).
+      Created when registering the webhook in Phase 2 (see docs/phase2-webhook-registration.md).
+    AllowedPattern: '^arn:aws:secretsmanager:[a-z0-9-]+:\d{12}:secret:.+$'
+    ConstraintDescription: Must be a valid Secrets Manager secret ARN.
+
+  JiraBaseUrl:
+    Type: String
+    Description: >
+      Base URL of the Jira Cloud instance (no trailing slash), e.g.
+      https://icxeed.atlassian.net. Not a secret - passed as a plain
+      parameter/environment variable, unlike the two ARNs above.
+    AllowedPattern: '^https://[a-zA-Z0-9.-]+\.atlassian\.net$'
+    ConstraintDescription: Must be an https:// Atlassian Cloud URL with no trailing slash.
+
 Globals:
   Function:
     Timeout: 30
@@ -43,6 +64,8 @@ Globals:
       Variables:
         ENVIRONMENT: !Ref EnvironmentName
         JIRA_SERVICE_ACCOUNT_SECRET_ARN: !Ref JiraServiceAccountSecretArn
+        JIRA_WEBHOOK_SIGNING_SECRET_ARN: !Ref JiraWebhookSigningSecretArn
+        JIRA_BASE_URL: !Ref JiraBaseUrl
 
 Resources:
   AttachmentSyncFunction:
@@ -52,8 +75,6 @@ Resources:
       Description: Receives Jira webhook events and syncs attachments to the linked mirror issue.
       CodeUri: ../src/
       Handler: handler.lambda_handler
-      # Phase 3 will implement handler.py; Phase 1 only wires the scaffold so
-      # the infra can be reviewed/deployed independently of business logic.
       Policies:
         - Statement:
             - Sid: ReadJiraServiceAccountSecret
@@ -61,6 +82,11 @@ Resources:
               Action:
                 - secretsmanager:GetSecretValue
               Resource: !Ref JiraServiceAccountSecretArn
+            - Sid: ReadJiraWebhookSigningSecret
+              Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref JiraWebhookSigningSecretArn
       Events:
         JiraWebhook:
           Type: HttpApi
