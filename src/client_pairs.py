@@ -48,6 +48,8 @@ class ClientPair:
 # just this registry entry).
 CLIENT_PAIRS: list[ClientPair] = [
     ClientPair(jsm_key="JTT", jira_key="JJST", client_name="iCXeed internal test pair"),
+    ClientPair(jsm_key="JT2", jira_key="JJST2", client_name="iCXeed internal test pair 2"),
+    ClientPair(jsm_key="JT3", jira_key="JJST3", client_name="iCXeed internal test pair 3"),
 ]
 
 
