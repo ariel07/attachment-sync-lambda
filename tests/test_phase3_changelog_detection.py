@@ -25,6 +25,7 @@ docs-certain. Worst case if this heuristic is ever wrong: a missed sync
 (safe) or a redundant one (harmless, no worse than the existing fallback
 behavior) - never a wrong sync to the wrong issue.
 """
+
 from __future__ import annotations
 
 
@@ -75,8 +76,20 @@ def test_ignores_unrelated_field_changes():
     webhook_body = {
         "changelog": {
             "items": [
-                {"field": "summary", "fromString": "Old", "toString": "New", "from": "x", "to": "y"},
-                {"field": "status", "fromString": "Open", "toString": "In Progress", "from": "1", "to": "2"},
+                {
+                    "field": "summary",
+                    "fromString": "Old",
+                    "toString": "New",
+                    "from": "x",
+                    "to": "y",
+                },
+                {
+                    "field": "status",
+                    "fromString": "Open",
+                    "toString": "In Progress",
+                    "from": "1",
+                    "to": "2",
+                },
             ]
         }
     }
@@ -106,8 +119,20 @@ def test_detects_addition_among_multiple_simultaneous_field_changes():
     webhook_body = {
         "changelog": {
             "items": [
-                {"field": "status", "from": "1", "to": "2", "fromString": "Open", "toString": "In Progress"},
-                {"field": "Attachment", "from": None, "to": "99999", "fromString": None, "toString": "file.pdf"},
+                {
+                    "field": "status",
+                    "from": "1",
+                    "to": "2",
+                    "fromString": "Open",
+                    "toString": "In Progress",
+                },
+                {
+                    "field": "Attachment",
+                    "from": None,
+                    "to": "99999",
+                    "fromString": None,
+                    "toString": "file.pdf",
+                },
             ]
         }
     }

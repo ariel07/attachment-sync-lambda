@@ -9,6 +9,7 @@ live during Phase 3, not from training memory):
   https://developer.atlassian.com/cloud/jira/platform/rest/v3/
   https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/
 """
+
 from __future__ import annotations
 
 from typing import Any, Protocol

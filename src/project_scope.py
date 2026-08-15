@@ -4,6 +4,7 @@ See tests/test_phase5_project_scope.py module docstring for full design
 rationale. Pure functions, no network I/O, no AWS dependency - same pattern
 as jsm_mirror_link.py and dedupe_check.py.
 """
+
 from __future__ import annotations
 
 

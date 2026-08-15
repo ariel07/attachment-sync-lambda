@@ -1,8 +1,9 @@
 """Phase 3 tests: verify_signature() - the production entry point handler.py
 will call, as opposed to Phase 2's lower-level compute_x_hub_signature()."""
+
 from __future__ import annotations
 
-from signature import verify_signature, compute_x_hub_signature
+from signature import compute_x_hub_signature, verify_signature
 
 SECRET = "It's a Secret to Everybody"
 BODY = "Hello World!"

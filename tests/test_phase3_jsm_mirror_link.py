@@ -10,6 +10,7 @@ issue appears under issuelinks[].inwardIssue, for a link of type.name ==
 "JSM Mirror". This matches the project's documented link-type convention
 (inward: "is mirrored by", outward: "mirrors") - see userMemories.
 """
+
 from __future__ import annotations
 
 import json
@@ -75,7 +76,7 @@ def test_find_mirror_issue_key_raises_on_multiple_mirror_links():
     project pairs with exactly one Kanban project). Two JSM Mirror links on
     one issue means something is misconfigured - fail loudly rather than
     silently picking one and syncing to the wrong place."""
-    from jsm_mirror_link import find_mirror_issue_key, AmbiguousMirrorLinkError
+    from jsm_mirror_link import AmbiguousMirrorLinkError, find_mirror_issue_key
 
     fixture = _load_fixture("jtt_102_issuelinks.json")
     duplicated = fixture["issuelinks"] + [
@@ -99,4 +100,9 @@ def test_find_mirror_issue_key_custom_link_type_name():
         "type": {"name": "Custom Mirror Name", "inward": "x", "outward": "y"},
         "inwardIssue": {"key": "ABC-1", "id": "1", "fields": {}},
     }
-    assert find_mirror_issue_key(link if isinstance(link, list) else [link], link_type_name="Custom Mirror Name") == "ABC-1"
+    assert (
+        find_mirror_issue_key(
+            link if isinstance(link, list) else [link], link_type_name="Custom Mirror Name"
+        )
+        == "ABC-1"
+    )

@@ -7,6 +7,7 @@ mirror issue - if one exists.
 Pure function, no network I/O, no AWS dependency - deliberately kept that
 way for fast, deterministic unit testing.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -51,7 +52,6 @@ def find_mirror_issue_key(
 
     if len(matches) > 1:
         raise AmbiguousMirrorLinkError(
-            f"Found {len(matches)} '{link_type_name}' inward links "
-            f"(expected 0 or 1): {matches}"
+            f"Found {len(matches)} '{link_type_name}' inward links (expected 0 or 1): {matches}"
         )
     return matches[0] if matches else None

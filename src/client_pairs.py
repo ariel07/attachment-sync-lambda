@@ -17,6 +17,7 @@ To onboard a new pair:
      docs/phase5-scaling-to-additional-pairs.md (native automation rules,
      service-account permissions, etc. - out of scope for this module).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

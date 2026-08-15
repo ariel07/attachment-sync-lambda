@@ -33,12 +33,11 @@ step "Capture a real payload". Until a real payload is captured, the
 attachment-field test below is skipped with an explicit reason rather than
 asserting an invented shape.
 """
+
 from __future__ import annotations
 
-import json
-
 import pytest
-from jsonschema import validate, ValidationError
+from jsonschema import ValidationError, validate
 
 # Schema for the parts of the envelope that ARE documented and confirmed.
 CONFIRMED_ENVELOPE_SCHEMA = {
@@ -110,6 +109,4 @@ def test_webhook_event_enum_rejects_unrelated_events():
     )
 )
 def test_attachment_field_shape_TODO_needs_live_capture():
-    raise NotImplementedError(
-        "Blocked on live payload capture - see skip reason above."
-    )
+    raise NotImplementedError("Blocked on live payload capture - see skip reason above.")

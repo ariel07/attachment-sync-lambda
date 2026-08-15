@@ -9,11 +9,10 @@ else declared). These tests are the acceptance criteria for "Phase 1 done."
 Run with: pytest tests/test_phase1_infra.py -v
 Requires: cfn-lint (pip install cfn-lint --break-system-packages)
 """
+
 from __future__ import annotations
 
-import json
 import subprocess
-import sys
 from pathlib import Path
 
 import yaml
@@ -127,8 +126,7 @@ def test_cfn_lint_passes():
 
     cfn_lint_bin = shutil.which("cfn-lint")
     assert cfn_lint_bin is not None, (
-        "cfn-lint is not installed. Install with: "
-        "pip install cfn-lint --break-system-packages"
+        "cfn-lint is not installed. Install with: pip install cfn-lint --break-system-packages"
     )
     result = subprocess.run(
         [cfn_lint_bin, str(TEMPLATE_PATH)],

@@ -21,6 +21,7 @@ ALLOWED_PROJECT_KEYS stays the actual deployed mechanism (see handler.py);
 this registry is a documentation/tooling source of truth for humans keeping
 that value and the JQL filter in sync, not a new runtime dependency.
 """
+
 from __future__ import annotations
 
 import pytest

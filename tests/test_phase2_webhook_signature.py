@@ -10,12 +10,12 @@ defined its own reference implementation before src/signature.py existed;
 now that src/signature.py exists (Phase 3), this test imports from there
 directly, so a regression in the real production code is caught here too.
 """
+
 from __future__ import annotations
 
 import hmac
 
 from signature import compute_x_hub_signature
-
 
 # Values published verbatim in Atlassian's Jira Cloud webhooks documentation.
 JIRA_DOCUMENTED_TEST_VECTOR = {

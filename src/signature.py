@@ -8,6 +8,7 @@ Atlassian's own published test vector before this module existed. That test
 now imports from here instead of duplicating the logic (see note in that
 file).
 """
+
 from __future__ import annotations
 
 import hashlib

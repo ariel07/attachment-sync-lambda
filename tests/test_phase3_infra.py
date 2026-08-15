@@ -2,6 +2,7 @@
 handler is wired through to the function's environment, and that it's a
 plain parameter (not another Secrets Manager ARN) since a base URL isn't
 sensitive."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -40,7 +41,9 @@ def test_jira_base_url_parameter_exists_and_is_not_a_secret_arn():
 
 def test_jira_base_url_is_wired_to_function_environment():
     doc = _load_template_as_dict()
-    env_vars = doc["Resources"]["AttachmentSyncFunction"]["Properties"].get(
-        "Environment", {}
-    ).get("Variables", doc["Globals"]["Function"]["Environment"]["Variables"])
+    env_vars = (
+        doc["Resources"]["AttachmentSyncFunction"]["Properties"]
+        .get("Environment", {})
+        .get("Variables", doc["Globals"]["Function"]["Environment"]["Variables"])
+    )
     assert "JIRA_BASE_URL" in env_vars

@@ -26,6 +26,7 @@ project keys. This is documented, longstanding Jira behavior
 (https://support.atlassian.com/jira-software-cloud/docs/what-is-an-issue/)
 but no live payload was captured to re-confirm it for this task.
 """
+
 from __future__ import annotations
 
 import pytest

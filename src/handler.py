@@ -15,6 +15,7 @@ raw JSON string, event["headers"] is a dict (case varies by client, so
 handle_webhook lowercases keys before lookup - HTTP headers are
 case-insensitive per spec).
 """
+
 from __future__ import annotations
 
 import json
@@ -87,7 +88,8 @@ def handle_webhook(
     except MalformedWebhookError as exc:
         logger.error(
             "Rejected webhook: %s | FULL PARSED BODY FOR DIAGNOSIS: %s",
-            exc, json.dumps(webhook_body),
+            exc,
+            json.dumps(webhook_body),
         )
         return {"statusCode": 400, "body": str(exc)}
 
@@ -98,11 +100,18 @@ def handle_webhook(
         # hitting this path means the JQL filter and this allowlist have
         # drifted out of sync and are worth investigating.
         logger.warning(
-            "Rejected %s: project not in ALLOWED_PROJECT_KEYS allowlist", issue_key,
+            "Rejected %s: project not in ALLOWED_PROJECT_KEYS allowlist",
+            issue_key,
         )
         return {
             "statusCode": 200,
-            "body": json.dumps({"status": "skipped", "reason": "project_not_allowlisted", "source_issue": issue_key}),
+            "body": json.dumps(
+                {
+                    "status": "skipped",
+                    "reason": "project_not_allowlisted",
+                    "source_issue": issue_key,
+                }
+            ),
         }
 
     attachment_id = extract_attachment_id_from_webhook(webhook_body)
@@ -114,11 +123,15 @@ def handle_webhook(
         logger.info("Skipping %s: update did not add an attachment", issue_key)
         return {
             "statusCode": 200,
-            "body": json.dumps({"status": "skipped", "reason": "not_attachment_change", "source_issue": issue_key}),
+            "body": json.dumps(
+                {"status": "skipped", "reason": "not_attachment_change", "source_issue": issue_key}
+            ),
         }
 
     try:
-        result = sync_new_attachment(jira_client, jsm_issue_key=issue_key, attachment_id=attachment_id)
+        result = sync_new_attachment(
+            jira_client, jsm_issue_key=issue_key, attachment_id=attachment_id
+        )
     except AmbiguousMirrorLinkError as exc:
         logger.error("Misconfiguration on %s: %s", issue_key, exc)
         return {"statusCode": 500, "body": f"Misconfiguration: {exc}"}
@@ -129,14 +142,17 @@ def handle_webhook(
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """AWS Lambda entry point. Wires real Secrets Manager + JiraClient."""
+    from secrets import get_secret_json
+
     from jira_client import JiraClient
     from project_scope import parse_allowed_project_keys
-    from secrets import get_secret_json
 
     raw_body = event.get("body") or ""
     headers = event.get("headers") or {}
 
-    webhook_signing_secret = get_secret_json(os.environ["JIRA_WEBHOOK_SIGNING_SECRET_ARN"])["secret"]
+    webhook_signing_secret = get_secret_json(os.environ["JIRA_WEBHOOK_SIGNING_SECRET_ARN"])[
+        "secret"
+    ]
     service_account = get_secret_json(os.environ["JIRA_SERVICE_ACCOUNT_SECRET_ARN"])
 
     jira_client = JiraClient(
@@ -151,4 +167,6 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     raw_allowlist = os.environ.get("ALLOWED_PROJECT_KEYS")
     allowed_project_keys = parse_allowed_project_keys(raw_allowlist) if raw_allowlist else None
 
-    return handle_webhook(raw_body, headers, webhook_signing_secret, jira_client, allowed_project_keys)
+    return handle_webhook(
+        raw_body, headers, webhook_signing_secret, jira_client, allowed_project_keys
+    )

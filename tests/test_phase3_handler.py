@@ -7,6 +7,7 @@ deployed invocation (Phase 7 - Testing, per the LOE) than by mocking boto3
 internals. handle_webhook() contains all the actual decision logic and is
 fully unit tested here with injected fakes.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,9 +27,7 @@ class FakeJiraClient:
     def __init__(self, issue_data: dict, target_issue_data: dict | None = None):
         self._issue_data = issue_data
         self._target_issue_data = (
-            target_issue_data
-            if target_issue_data is not None
-            else {"fields": {"attachment": []}}
+            target_issue_data if target_issue_data is not None else {"fields": {"attachment": []}}
         )
         self.get_issue_calls: list[dict] = []
         self.upload_calls: list[dict] = []
@@ -54,7 +53,11 @@ def _issue_with_mirror_and_attachment():
             "issuelinks": [
                 {
                     "id": "11789",
-                    "type": {"name": "JSM Mirror", "inward": "is mirrored by", "outward": "mirrors"},
+                    "type": {
+                        "name": "JSM Mirror",
+                        "inward": "is mirrored by",
+                        "outward": "mirrors",
+                    },
                     "inwardIssue": {"key": "JJST-4", "id": "32541", "fields": {}},
                 }
             ],
@@ -85,13 +88,25 @@ def _webhook_body(issue_key="JTT-102", include_attachment_change=True):
     if include_attachment_change:
         body["changelog"] = {
             "items": [
-                {"field": "Attachment", "from": None, "to": "31711", "fromString": None, "toString": "image.png"}
+                {
+                    "field": "Attachment",
+                    "from": None,
+                    "to": "31711",
+                    "fromString": None,
+                    "toString": "image.png",
+                }
             ]
         }
     else:
         body["changelog"] = {
             "items": [
-                {"field": "status", "from": "1", "to": "2", "fromString": "Open", "toString": "In Progress"}
+                {
+                    "field": "status",
+                    "from": "1",
+                    "to": "2",
+                    "fromString": "Open",
+                    "toString": "In Progress",
+                }
             ]
         }
     return body
@@ -116,7 +131,9 @@ def test_handle_webhook_rejects_wrong_signature():
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
     headers = {"x-hub-signature": "sha256=wrongwrongwrong"}
 
-    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 401
     assert client.upload_calls == []
@@ -127,10 +144,14 @@ def test_handle_webhook_accepts_valid_signature_and_syncs():
 
     body = json.dumps(_webhook_body())
     signature = compute_x_hub_signature(SECRET, body)
-    headers = {"X-Hub-Signature": signature}  # deliberately mixed-case, header names are case-insensitive
+    headers = {
+        "X-Hub-Signature": signature
+    }  # deliberately mixed-case, header names are case-insensitive
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
-    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 200
     result = json.loads(response["body"])
@@ -146,7 +167,9 @@ def test_handle_webhook_returns_400_on_invalid_json():
     signature = compute_x_hub_signature(SECRET, "not json")
     headers = {"X-Hub-Signature": signature}
 
-    response = handle_webhook("not json", headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        "not json", headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 400
 
@@ -159,7 +182,9 @@ def test_handle_webhook_returns_400_on_missing_issue_key():
     headers = {"X-Hub-Signature": signature}
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
-    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 400
 
@@ -174,7 +199,9 @@ def test_handle_webhook_returns_200_on_skip_no_mirror_link():
     unlinked_issue = {"key": "JTT-999", "fields": {"issuelinks": [], "attachment": []}}
     client = FakeJiraClient(unlinked_issue)
 
-    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 200
     result = json.loads(response["body"])
@@ -193,7 +220,9 @@ def test_handle_webhook_skips_non_attachment_updates_without_calling_jira_api():
     headers = {"X-Hub-Signature": signature}
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
-    response = handle_webhook(body, headers=headers, webhook_signing_secret=SECRET, jira_client=client)
+    response = handle_webhook(
+        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client
+    )
 
     assert response["statusCode"] == 200
     result = json.loads(response["body"])
@@ -210,6 +239,7 @@ def test_handle_webhook_skips_non_attachment_updates_without_calling_jira_api():
 # why this guard exists alongside (not instead of) the webhook's own JQL
 # filter.
 
+
 def test_handle_webhook_skips_issue_outside_allowlist_before_any_jira_call():
     from handler import handle_webhook
 
@@ -219,7 +249,10 @@ def test_handle_webhook_skips_issue_outside_allowlist_before_any_jira_call():
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
     response = handle_webhook(
-        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        body,
+        headers=headers,
+        webhook_signing_secret=SECRET,
+        jira_client=client,
         allowed_project_keys=["JTT", "ABB", "BEE"],
     )
 
@@ -239,7 +272,10 @@ def test_handle_webhook_processes_issue_inside_allowlist():
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
     response = handle_webhook(
-        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        body,
+        headers=headers,
+        webhook_signing_secret=SECRET,
+        jira_client=client,
         allowed_project_keys=["JTT", "ABB", "BEE"],
     )
 
@@ -259,7 +295,10 @@ def test_handle_webhook_skips_allowlist_check_when_not_configured():
     client = FakeJiraClient(_issue_with_mirror_and_attachment())
 
     response = handle_webhook(
-        body, headers=headers, webhook_signing_secret=SECRET, jira_client=client,
+        body,
+        headers=headers,
+        webhook_signing_secret=SECRET,
+        jira_client=client,
         allowed_project_keys=None,
     )
 

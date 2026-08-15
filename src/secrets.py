@@ -6,6 +6,7 @@ packages include boto3/botocore for all supported versions). It IS needed as
 a local dev dependency to run tests that exercise the default (non-injected)
 path - tests that inject a fake client avoid needing it installed at all.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,9 @@ class _SecretsManagerClientProtocol(Protocol):
     def get_secret_value(self, SecretId: str) -> dict[str, Any]: ...
 
 
-def get_secret_json(secret_arn: str, client: _SecretsManagerClientProtocol | None = None) -> dict[str, Any]:
+def get_secret_json(
+    secret_arn: str, client: _SecretsManagerClientProtocol | None = None
+) -> dict[str, Any]:
     """Fetch a Secrets Manager secret and parse it as JSON.
 
     All secrets this Lambda uses are stored as JSON objects (see

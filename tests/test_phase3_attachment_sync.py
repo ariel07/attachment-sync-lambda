@@ -16,6 +16,7 @@ id is used to pick the exact attachment; if not, the most recently created
 attachment is used as a best-effort fallback (documented explicitly as a
 fallback, not silently).
 """
+
 from __future__ import annotations
 
 import json
@@ -52,9 +53,7 @@ class FakeJiraClient:
         self._issue_data = issue_data
         self._download_bytes = download_bytes
         self._target_issue_data = (
-            target_issue_data
-            if target_issue_data is not None
-            else {"fields": {"attachment": []}}
+            target_issue_data if target_issue_data is not None else {"fields": {"attachment": []}}
         )
         self.get_issue_calls: list[dict] = []
         self.download_calls: list[str] = []
@@ -71,10 +70,14 @@ class FakeJiraClient:
         return self._download_bytes
 
     def upload_attachment(self, issue_key: str, filename: str, content: bytes, mime_type: str):
-        self.upload_calls.append({
-            "issue_key": issue_key, "filename": filename,
-            "content": content, "mime_type": mime_type,
-        })
+        self.upload_calls.append(
+            {
+                "issue_key": issue_key,
+                "filename": filename,
+                "content": content,
+                "mime_type": mime_type,
+            }
+        )
         return [{"id": "new-id", "filename": filename}]
 
 
@@ -160,6 +163,7 @@ def test_sync_new_attachment_skips_when_attachment_id_not_found():
 # of source_issue/target_issue by hand - flagged as a known gap in
 # docs/phase5-scaling-to-additional-pairs.md before this was built.
 
+
 def test_synced_result_includes_source_and_target_project():
     from attachment_sync import sync_new_attachment
 
@@ -189,7 +193,9 @@ def test_skipped_already_synced_result_includes_both_projects():
     target_with_existing = {
         "fields": {"attachment": [{"filename": "image-20260812-021129.png", "size": 39183}]}
     }
-    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_with_existing)
+    client = FakeJiraClient(
+        _issue_with_links_and_attachments(), target_issue_data=target_with_existing
+    )
     result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
 
     assert result["status"] == "skipped"
@@ -225,7 +231,7 @@ def test_extract_issue_key_from_webhook_uses_only_confirmed_field():
 
 
 def test_extract_issue_key_from_webhook_raises_on_missing_issue():
-    from attachment_sync import extract_issue_key_from_webhook, MalformedWebhookError
+    from attachment_sync import MalformedWebhookError, extract_issue_key_from_webhook
 
     with pytest.raises(MalformedWebhookError):
         extract_issue_key_from_webhook({"timestamp": 1, "webhookEvent": "attachment_created"})
@@ -249,6 +255,7 @@ def test_extract_attachment_id_from_webhook_when_present():
 # wasn't part of Phase 3, and dedupe_check.py for the filename+size
 # strategy's own unit tests (this file only tests the integration point).
 
+
 def test_sync_new_attachment_skips_when_already_synced():
     """The target issue already has an attachment with matching filename
     and size - this is a duplicate webhook delivery (or retry) for an
@@ -265,7 +272,9 @@ def test_sync_new_attachment_skips_when_already_synced():
             ]
         }
     }
-    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_issue_data)
+    client = FakeJiraClient(
+        _issue_with_links_and_attachments(), target_issue_data=target_issue_data
+    )
 
     result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
 
@@ -291,7 +300,9 @@ def test_sync_new_attachment_proceeds_when_target_has_different_attachments():
             ]
         }
     }
-    client = FakeJiraClient(_issue_with_links_and_attachments(), target_issue_data=target_issue_data)
+    client = FakeJiraClient(
+        _issue_with_links_and_attachments(), target_issue_data=target_issue_data
+    )
 
     result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
 
