@@ -26,9 +26,12 @@ def get_secret_json(
     docs/phase1-manual-steps.md and docs/phase2-webhook-registration.md for
     the exact `create-secret` commands), not plain strings.
     """
+    resolved_client: _SecretsManagerClientProtocol
     if client is None:
         import boto3
 
-        client = boto3.client("secretsmanager")
-    response = client.get_secret_value(SecretId=secret_arn)
+        resolved_client = boto3.client("secretsmanager")  # type: ignore[assignment]
+    else:
+        resolved_client = client
+    response = resolved_client.get_secret_value(SecretId=secret_arn)
     return json.loads(response["SecretString"])
