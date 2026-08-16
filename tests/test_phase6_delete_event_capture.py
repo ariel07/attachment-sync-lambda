@@ -5,7 +5,7 @@ temporary capture path in handler.py so a real attachment_deleted payload
 can be captured from icxeed.atlassian.net, mirroring how Phase 2 captured
 attachment_created before Phase 3 could be built against a real shape.
 
-Per docs/phase6-attachment-delete-sync-handoff.md and the follow-up
+Per docs/phase6-attachment-delete-sync.md and the follow-up
 investigation: JTT-102's actual changelog (24 entries, confirmed live via
 Atlassian Rovo) shows NO removal entry for a real deleted attachment,
 meaning jira:issue_updated's changelog cannot be used to detect deletions.

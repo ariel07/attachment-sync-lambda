@@ -3,7 +3,7 @@ attachment_deleted events.
 
 This path exists ONLY to capture a real payload from icxeed.atlassian.net -
 it must never attempt to sync/delete anything, since no confirmed shape or
-matching logic exists yet (see docs/phase6-attachment-delete-sync-handoff.md
+matching logic exists yet (see docs/phase6-attachment-delete-sync.md
 and the changelog investigation that ruled out jira:issue_updated for this
 purpose). It must fire even when the payload has no issue.key at all, since
 attachment_created (the sibling event) proved that's a real possibility for

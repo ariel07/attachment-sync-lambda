@@ -1,7 +1,9 @@
 # Phase 5 — Scaling to Additional Client Pairs
 
-**Context:** JTT ↔ JJST is the test pair. This doc covers onboarding
-additional production pairs (e.g. `ABB` → `DCC`, `BEE` → `GTT`).
+**Context:** JTT ↔ JJST, JT2 ↔ JJST2, and JT3 ↔ JJST3 are the three
+registered test pairs (all on `icxeed.atlassian.net`). This doc covers the
+same onboarding pattern used to scale from one pair to three, for
+onboarding any future production pair.
 
 ## What does NOT need to change
 
@@ -25,11 +27,15 @@ below.
 - Status sync rule: same copy-and-rescope pattern once built.
 
 ### 2. Webhook JQL filter (Lambda side, config only)
-Currently scoped to a single project:
+Started scoped to a single project:
 ```
 project = JTT
 ```
-Widen it to an explicit list as pairs are added. Don't hand-edit this
+Currently widened to all three registered test pairs:
+```
+project in (JTT, JT2, JT3)
+```
+Widen it further as new pairs are added. Don't hand-edit this
 separately from the allowlist below - both are now generated from one
 source, `src/client_pairs.py`, to remove the drift risk of maintaining two
 lists by hand.
@@ -79,7 +85,7 @@ checklist item, not an infra change.
 ### 5. Redeploy
 ```bash
 cd infra
-sam deploy --parameter-overrides AllowedProjectKeys="JTT,ABB,BEE"
+sam deploy --parameter-overrides AllowedProjectKeys="JTT,JT2,JT3"
 ```
 (`samconfig.toml`'s saved parameters can be updated instead of passing
 `--parameter-overrides` each time, if preferred.)
@@ -113,6 +119,6 @@ from `project_scope.project_key_of()`, alongside the existing
 Insights query filter or group by client pair directly:
 ```
 fields @timestamp, source_project, target_project, status, reason
-| filter source_project = "ABB"
+| filter source_project = "JT2"
 ```
 without parsing project prefixes out of issue keys by hand.

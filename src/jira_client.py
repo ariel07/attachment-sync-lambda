@@ -73,7 +73,7 @@ class JiraClient:
         raise_for_status(), same convention as every other method on this
         client - this method does not decide whether a 404 should be
         treated as an idempotent no-op; that policy decision belongs to the
-        caller (see docs/phase6-attachment-delete-sync-handoff.md, open
+        caller (see docs/phase6-attachment-delete-sync.md, open
         question #4).
         """
         url = f"{self.base_url}/rest/api/3/attachment/{attachment_id}"

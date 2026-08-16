@@ -88,7 +88,7 @@ def handle_webhook(
     # not depend on issue.key being present. This branch only logs and
     # returns 200 ("captured", not "synced"/"skipped") - it must never call
     # into jira_client or any sync/delete logic. See
-    # docs/phase6-attachment-delete-sync-handoff.md and the changelog
+    # docs/phase6-attachment-delete-sync.md and the changelog
     # investigation that ruled out jira:issue_updated for detecting
     # deletions (JTT-102's real changelog, checked live, recorded zero
     # removal entries for a confirmed real deletion).

@@ -73,7 +73,7 @@ def test_delete_attachment_sends_correct_request():
 def test_delete_attachment_raises_on_forbidden():
     """403: attachments disabled, or service account lacks delete
     permission on this project - the exact scenario flagged as unconfirmed
-    in docs/phase6-attachment-delete-sync-handoff.md open question #5."""
+    in docs/phase6-attachment-delete-sync.md open question #5."""
     from jira_client import JiraClient
 
     session = FakeSession([FakeResponse(403)])
