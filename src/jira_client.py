@@ -25,6 +25,7 @@ class _HttpSession(Protocol):
 
     def get(self, url: str, **kwargs: Any) -> Any: ...
     def post(self, url: str, **kwargs: Any) -> Any: ...
+    def delete(self, url: str, **kwargs: Any) -> Any: ...
 
 
 class JiraClient:
@@ -60,6 +61,29 @@ class JiraClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def delete_attachment(self, attachment_id: str) -> None:
+        """DELETE /rest/api/3/attachment/{id}
+
+        Removes an attachment by id. Confirmed against official Atlassian
+        docs (Phase 6): 204 No Content on success (empty body - nothing to
+        return), 403 if attachments are disabled or the caller lacks
+        delete permission on the containing project, 404 if the id doesn't
+        exist or isn't accessible. All non-2xx responses are surfaced via
+        raise_for_status(), same convention as every other method on this
+        client - this method does not decide whether a 404 should be
+        treated as an idempotent no-op; that policy decision belongs to the
+        caller (see docs/phase6-attachment-delete-sync-handoff.md, open
+        question #4).
+        """
+        url = f"{self.base_url}/rest/api/3/attachment/{attachment_id}"
+        response = self._session.delete(
+            url,
+            auth=self._auth,
+            timeout=self._timeout,
+        )
+        response.raise_for_status()
+        return None
 
     def download_attachment(self, content_url: str) -> bytes:
         """GET the attachment's `content` URL (from fields.attachment[].content).

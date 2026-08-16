@@ -28,6 +28,7 @@ from attachment_sync import (
     changelog_has_attachment_addition,
     extract_attachment_id_from_webhook,
     extract_issue_key_from_webhook,
+    is_attachment_deleted_event,
     sync_new_attachment,
 )
 from jsm_mirror_link import AmbiguousMirrorLinkError
@@ -76,6 +77,30 @@ def handle_webhook(
     except json.JSONDecodeError:
         logger.error("Rejected webhook: body is not valid JSON. Raw body: %s", raw_body)
         return {"statusCode": 400, "body": "Invalid JSON body"}
+
+    # PHASE 6 TEMPORARY CAPTURE PATH - do not extend, do not remove until a
+    # real attachment_deleted payload has been captured and Phase 6 core
+    # logic is built against it.
+    #
+    # Runs BEFORE extract_issue_key_from_webhook deliberately: the sibling
+    # attachment_created event was confirmed (Phase 2/3, real captured
+    # payload) to sometimes carry NO issue reference at all, so this must
+    # not depend on issue.key being present. This branch only logs and
+    # returns 200 ("captured", not "synced"/"skipped") - it must never call
+    # into jira_client or any sync/delete logic. See
+    # docs/phase6-attachment-delete-sync-handoff.md and the changelog
+    # investigation that ruled out jira:issue_updated for detecting
+    # deletions (JTT-102's real changelog, checked live, recorded zero
+    # removal entries for a confirmed real deletion).
+    if is_attachment_deleted_event(webhook_body):
+        logger.info(
+            "ATTACHMENT_DELETED_CAPTURE_ONLY payload (FULL BODY FOR ANALYSIS): %s",
+            json.dumps(webhook_body),
+        )
+        return {
+            "statusCode": 200,
+            "body": json.dumps({"status": "captured", "reason": "attachment_deleted_capture_only"}),
+        }
 
     # TEMPORARY diagnostic logging (Phase 2/3 payload-shape gap): log the full
     # parsed body whenever we're about to fail on it, so a real captured

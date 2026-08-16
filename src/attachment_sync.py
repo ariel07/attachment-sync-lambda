@@ -117,6 +117,19 @@ def changelog_has_attachment_addition(webhook_body: dict[str, Any]) -> bool:
     return False
 
 
+def is_attachment_deleted_event(webhook_body: dict[str, Any]) -> bool:
+    """Identify an attachment_deleted webhook delivery, for the Phase 6
+    temporary capture path in handler.py (NOT sync-detection logic - see
+    that path's docstring for why: this Lambda has no confirmed shape for
+    this event yet, so it only logs and returns, same as Phase 2 did for
+    attachment_created before Phase 3 could be built against a real
+    capture). Pure, defensive: returns False rather than raising on any
+    missing/malformed field, so callers can check this unconditionally
+    before their normal validation path.
+    """
+    return webhook_body.get("webhookEvent") == "attachment_deleted"
+
+
 def sync_new_attachment(
     jira_client: _JiraClientProtocol,
     jsm_issue_key: str,
