@@ -20,10 +20,11 @@ import pytest
 
 
 class FakeResponse:
-    def __init__(self, status_code=200, json_data=None, content=b""):
+    def __init__(self, status_code=200, json_data=None, content=b"", text=""):
         self.status_code = status_code
         self._json_data = json_data
         self.content = content
+        self.text = text
 
     def json(self):
         return self._json_data
@@ -46,7 +47,7 @@ class FakeSession:
         )
         return self._responses.pop(0)
 
-    def post(self, url, auth=None, headers=None, files=None, timeout=None, **kwargs):
+    def post(self, url, auth=None, headers=None, files=None, json=None, timeout=None, **kwargs):
         self.calls.append(
             {
                 "method": "POST",
@@ -54,6 +55,7 @@ class FakeSession:
                 "auth": auth,
                 "headers": headers,
                 "files": files,
+                "json": json,
                 "timeout": timeout,
             }
         )

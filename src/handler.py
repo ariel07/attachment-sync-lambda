@@ -14,6 +14,18 @@ Event shape: API Gateway HttpApi proxy integration - event["body"] is the
 raw JSON string, event["headers"] is a dict (case varies by client, so
 handle_webhook lowercases keys before lookup - HTTP headers are
 case-insensitive per spec).
+
+MIRROR CREATE+LINK (jira:issue_created branch, added below): replaces the
+native "Auto-create mirror" automation rule's Create + Branch + Link steps.
+That rule's Branch step ("find the issue I just created") was confirmed
+(Aug 17-19, live testing against GLO/CHE/SCN/JJST) to fail 100% of the time
+on new blocks, independent of branch-type setting ("recentlycreated" vs
+"created") and independent of target project - while identical blocks
+created Aug 17 worked. Root cause unconfirmed (no Atlassian status page
+incident found for the window), but the fix doesn't depend on knowing the
+cause: create_issue() returns the new key directly from the API response,
+so there's no search/lookup step to race against at all. See
+mirror_create.py for the full mapping/config.
 """
 
 from __future__ import annotations
@@ -32,6 +44,7 @@ from attachment_sync import (
     sync_new_attachment,
 )
 from jsm_mirror_link import AmbiguousMirrorLinkError
+from mirror_create import JSM_MIRROR_LINK_TYPE_ID, create_mirror
 from project_scope import is_allowed_project
 from signature import verify_signature
 
@@ -100,6 +113,81 @@ def handle_webhook(
         return {
             "statusCode": 200,
             "body": json.dumps({"status": "captured", "reason": "attachment_deleted_capture_only"}),
+        }
+
+    # MIRROR CREATE+LINK PATH - handles jira:issue_created events, replacing
+    # the native "Auto-create mirror" rule's Create + Branch + Link steps
+    # (see module docstring for why). Runs BEFORE
+    # extract_issue_key_from_webhook() deliberately: issue_created payloads
+    # have a different shape than issue_updated ones (no changelog, for
+    # instance) and shouldn't be run through attachment-focused extraction
+    # logic at all.
+    if webhook_body.get("webhookEvent") == "jira:issue_created":
+        try:
+            issue = webhook_body["issue"]
+            issue_key = issue["key"]
+            project_key = issue["fields"]["project"]["key"]
+            issuetype_name = issue["fields"]["issuetype"]["name"]
+            summary = issue["fields"]["summary"]
+            description = issue["fields"].get("description") or ""
+        except KeyError as exc:
+            logger.error(
+                "Rejected issue_created webhook: missing field %s | FULL BODY: %s",
+                exc,
+                json.dumps(webhook_body),
+            )
+            return {"statusCode": 400, "body": f"Malformed issue_created payload: missing {exc}"}
+
+        # Idempotency guard: the webhook has a confirmed double-fire behavior
+        # (seen in CloudWatch for JTT-109/JTT-110, each fired twice within
+        # the same second). Cheapest guard available without new infra:
+        # check if this issue already has a JSM Mirror link before creating
+        # another one. Accepts one extra read call per event as the cost of
+        # staying infra-light; revisit with a real dedupe table
+        # (dedupe_check.py already has the DynamoDB pattern) if this scales
+        # past the current handful of client pairs.
+        existing = jira_client.get_issue(issue_key, fields=["issuelinks"])
+        already_linked = any(
+            link.get("type", {}).get("id") == JSM_MIRROR_LINK_TYPE_ID
+            for link in existing.get("fields", {}).get("issuelinks", [])
+        )
+        if already_linked:
+            logger.info("Skipping %s: already has a JSM Mirror link", issue_key)
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    {"status": "skipped", "reason": "already_linked", "source_issue": issue_key}
+                ),
+            }
+
+        new_key = create_mirror(
+            jira_client,
+            source_issue_key=issue_key,
+            source_project_key=project_key,
+            source_issuetype_name=issuetype_name,
+            summary=summary,
+            description=description,
+        )
+
+        if new_key is None:
+            logger.info("Skipping %s: project not in MIRROR_MAP", issue_key)
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    {
+                        "status": "skipped",
+                        "reason": "project_not_mirrored",
+                        "source_issue": issue_key,
+                    }
+                ),
+            }
+
+        logger.info("Created mirror %s for %s", new_key, issue_key)
+        return {
+            "statusCode": 200,
+            "body": json.dumps(
+                {"status": "created", "source_issue": issue_key, "mirror_issue": new_key}
+            ),
         }
 
     # TEMPORARY diagnostic logging (Phase 2/3 payload-shape gap): log the full
