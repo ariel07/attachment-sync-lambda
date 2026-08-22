@@ -16,3 +16,6 @@ samconfig.toml
 # Local secret files - never commit, values already live in AWS Secrets Manager
 jira-webhook-secret.txt
 secret-1.txt
+
+# Jira board URLs
+jira_board.txt

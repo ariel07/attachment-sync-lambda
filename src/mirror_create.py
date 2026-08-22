@@ -1,19 +1,7 @@
 """Config-driven mirror issue creation + linking.
 
 Replaces the native "Auto-create mirror" automation rule's Create + Branch +
-Link steps, which were confirmed (Aug 17-19, live testing) to intermittently
-fail at the Branch step - 100% reproducible on new blocks (GLO, CHE, SCN,
-JJST), root cause unconfirmed but consistent with a Jira Cloud search-index
-dependency the Branch step relies on. This module avoids that dependency
-entirely: create_issue() returns the new key directly from the API response,
-so there's no search/lookup step to race against.
-
-JSM_MIRROR_LINK_TYPE_ID = "10012".
-
-TEST CONFIGURATION: mapped to the JJST-family test pair (client_pairs.py's
-existing test registry), not production KM/BP/BC, until this replacement
-path is validated end-to-end. Swap MIRROR_MAP to the KM/BP/BC values (kept
-in comments below) once confirmed reliable.
+Link steps
 """
 
 from __future__ import annotations
@@ -26,68 +14,114 @@ JSM_MIRROR_LINK_TYPE_ID = "10012"
 class MirrorTarget(TypedDict, total=False):
     target_project_id: str
     task_issuetype_id: str
-    sr_epic_key: str  # used when source issuetype == "Service Request"
-    bf_epic_key: str  # used otherwise, if the client splits SR/BF
-    flat_epic_key: str  # used instead of sr/bf split, if the client has one epic
-    account_field_id: str  # customfield_10108 - omit entirely for targets without it
+    sr_epic_key: str  # source issuetype == "Service Request"
+    bf_epic_key: str  # source issuetype == "Incident Request" ("Break/Fix")
+    cr_epic_key: str  # source issuetype == "Change Request"
+    account_field_id: str  # customfield_10108
     account_option_id: str
 
 
-# --- TEST CONFIG: JTT/JT2/JT3 -> JJST/JJST2/JJST3 ---
-# No epic parent, no Account field - confirmed via getJiraIssueTypeMetaWithFields
-# that JJST doesn't have customfield_10108 configured, and parent isn't required.
+# Source JSM project key -> mirror target config. Source project IDs
+# (all confirmed via getVisibleJiraProjects, Aug 19):
+#   AS=10982  BS=10988  BSUP=11281  CS=10986  GSP=10990
+#   KMS=10981  SS=10987  UOFM=10991  OUAS=11577
 MIRROR_MAP: dict[str, MirrorTarget] = {
-    "JTT": {
-        "target_project_id": "12719",  # JJST
-        "task_issuetype_id": "11440",  # JJST's own Task ID (team-managed project)
+    "AS": {  # -> AMC (AAMC)
+        "target_project_id": "11378",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "AMC-393",
+        "bf_epic_key": "AMC-394",
+        "cr_epic_key": "AMC-395",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "34",
     },
-    "JT2": {
-        "target_project_id": "12720",  # JJST2
-        "task_issuetype_id": "11446",
+    "BS": {  # -> BC (Bellonacare)
+        "target_project_id": "11447",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "BC-36",
+        "bf_epic_key": "BC-37",
+        "cr_epic_key": "BC-38",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "36",
     },
-    "JT3": {
-        "target_project_id": "12721",  # JJST3
-        "task_issuetype_id": "11452",
+    "BSUP": {  # -> BP (Bupa)
+        "target_project_id": "11279",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "BP-150",
+        "bf_epic_key": "BP-151",
+        "cr_epic_key": "BP-168",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "2",
+    },
+    "CS": {  # -> CHE (Chelsea) - split-billing caveat, see module docstring
+        "target_project_id": "11311",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "CHE-89",
+        "bf_epic_key": "CHE-99",
+        "cr_epic_key": "CHE-124",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "7",  # Billable default - see docstring caveat
+    },
+    "GSP": {  # -> GLO (GlobalPay)
+        "target_project_id": "11316",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "GLO-228",
+        "bf_epic_key": "GLO-229",
+        "cr_epic_key": "GLO-232",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "1",
+    },
+    "KMS": {  # -> KM (Kip McGrath)
+        "target_project_id": "11313",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "KM-178",
+        "bf_epic_key": "KM-179",
+        "cr_epic_key": "KM-231",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "3",
+    },
+    "SS": {  # -> SCN (Scene to Believe / STB) - split-billing caveat, see module docstring
+        "target_project_id": "11312",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "SCN-442",
+        "bf_epic_key": "SCN-443",
+        "cr_epic_key": "SCN-470",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "5",  # Billable default - see docstring caveat
+    },
+    "UOFM": {  # -> UOM (University of Melbourne)
+        "target_project_id": "11345",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "UOM-420",
+        "bf_epic_key": "UOM-272",
+        "cr_epic_key": "UOM-421",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "26",
+    },
+    "OUAS": {  # -> OUA (Open University Australia)
+        "target_project_id": "11610",
+        "task_issuetype_id": "10121",
+        "sr_epic_key": "OUA-316",
+        "bf_epic_key": "OUA-315",
+        "cr_epic_key": "OUA-317",
+        "account_field_id": "customfield_10108",
+        "account_option_id": "41",
     },
 }
 
-# --- PRODUCTION CONFIG (KM/BP/BC) - swap in once JJST test path is confirmed ---
-# MIRROR_MAP: dict[str, MirrorTarget] = {
-#     "JTT": {
-#         "target_project_id": "11313",       # KM
-#         "task_issuetype_id": "10121",
-#         "sr_epic_key": "KM-178",
-#         "bf_epic_key": "KM-179",
-#         "account_field_id": "customfield_10108",
-#         "account_option_id": "3",
-#     },
-#     "JT2": {
-#         "target_project_id": "11279",       # BP
-#         "task_issuetype_id": "10121",
-#         "sr_epic_key": "BP-150",
-#         "bf_epic_key": "BP-151",
-#         "account_field_id": "customfield_10108",
-#         "account_option_id": "2",
-#     },
-#     "JT3": {
-#         "target_project_id": "11447",       # BC
-#         "task_issuetype_id": "10121",
-#         "flat_epic_key": "BC-33",
-#         "account_field_id": "customfield_10108",
-#         "account_option_id": "36",
-#     },
-# }
-
 
 def resolve_epic(cfg: MirrorTarget, source_issuetype_name: str) -> str | None:
-    """Picks the right parent epic for this ticket, or None if the target
-    doesn't use epic parenting at all (current case for JJST-family test
-    targets - none of the epic keys are set)."""
-    if "flat_epic_key" in cfg:
-        return cfg["flat_epic_key"]
+    """Three-way match on the source ticket's issue type. Returns None
+    (no parent set, rather than guessing) for any issue type outside the
+    three confirmed categories - safer than silently defaulting to one
+    category for an unexpected type."""
     if source_issuetype_name == "Service Request":
         return cfg.get("sr_epic_key")
-    return cfg.get("bf_epic_key")
+    if source_issuetype_name == "Incident Request":
+        return cfg.get("bf_epic_key")
+    if source_issuetype_name == "Change Request":
+        return cfg.get("cr_epic_key")
+    return None
 
 
 def create_mirror(
@@ -130,16 +164,10 @@ def create_mirror(
         # confirmed that new_key must be passed as inward_issue_key, and
         # source_issue_key as outward_issue_key, for
         # jsm_mirror_link.find_mirror_issue_key() to successfully find the
-        # link from the JSM-ticket side afterward. This is the OPPOSITE of
-        # what the link type's own inward/outward LABEL TEXT would suggest
-        # ("is mirrored by" is shown on the JSM ticket, which reads like
-        # JSM should be inward) - the label text describes UI display
-        # wording, not the API's inwardIssue/outwardIssue field semantics.
-        # Matching the pre-existing, already-working consumer's actual
-        # contract (jsm_mirror_link.py) was treated as authoritative over
-        # the "expected" reading of the label text or general API docs.
-        inward_issue_key=new_key,  # Jira Software side
-        outward_issue_key=source_issue_key,  # JSM side
+        # link from the JSM-ticket side afterward. Opposite of what the
+        # link type's own label text would suggest.
+        inward_issue_key=new_key,
+        outward_issue_key=source_issue_key,
     )
 
     return new_key
