@@ -1,5 +1,5 @@
 {
-  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, JTT-102, 2026-08-14. This is real, not invented. Trimmed to the fields the sync logic needs.",
+  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, TSRC-102, 2026-08-14. This is real, not invented. Trimmed to the fields the sync logic needs.",
   "attachment": [
     {
       "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/31711",

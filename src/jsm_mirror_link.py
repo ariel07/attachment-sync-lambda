@@ -55,3 +55,47 @@ def find_mirror_issue_key(
             f"Found {len(matches)} '{link_type_name}' inward links (expected 0 or 1): {matches}"
         )
     return matches[0] if matches else None
+
+
+def find_source_issue_key(
+    issuelinks: list[dict[str, Any]],
+    link_type_name: str = "JSM Mirror",
+) -> str | None:
+    """Return the key of the source JSM issue, or None if no mirror link exists.
+
+    Mirror-image counterpart to find_mirror_issue_key(): only considers the
+    OUTWARD direction (i.e. this function assumes it is being called with
+    the issuelinks of a Jira Software mirror issue, which "mirrors" a JSM
+    ticket - outward on the JSM Mirror link type per the project's
+    documented convention). A link where this issue is the INWARD side
+    (i.e. this issue "is mirrored by" something) is not a match here; call
+    this only from the mirror-issue side of the pair.
+
+    Added in Phase 8 to support bidirectional attachment sync: an
+    attachment added directly to a mirror issue needs this to find its way
+    back to the JSM source (see attachment_sync.sync_new_attachment, which
+    tries find_mirror_issue_key first and falls back to this one).
+
+    Raises AmbiguousMirrorLinkError if more than one matching outward link
+    is found - same one-to-one architecture assumption as
+    find_mirror_issue_key.
+    """
+    matches: list[str] = []
+    for link in issuelinks:
+        link_type = link.get("type", {})
+        if link_type.get("name") != link_type_name:
+            continue
+        outward_issue = link.get("outwardIssue")
+        if outward_issue is None:
+            # This issue is the INWARD side of the link (or the link is
+            # malformed) - not a match for this function's contract.
+            continue
+        key = outward_issue.get("key")
+        if key:
+            matches.append(key)
+
+    if len(matches) > 1:
+        raise AmbiguousMirrorLinkError(
+            f"Found {len(matches)} '{link_type_name}' outward links (expected 0 or 1): {matches}"
+        )
+    return matches[0] if matches else None

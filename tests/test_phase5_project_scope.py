@@ -35,13 +35,13 @@ import pytest
 def test_allows_issue_from_an_allowlisted_project():
     from project_scope import is_allowed_project
 
-    assert is_allowed_project("JTT-102", allowed_project_keys=["JTT", "ABB", "BEE"]) is True
+    assert is_allowed_project("TSRC-102", allowed_project_keys=["TSRC", "ABB", "BEE"]) is True
 
 
 def test_rejects_issue_from_a_project_not_on_the_allowlist():
     from project_scope import is_allowed_project
 
-    assert is_allowed_project("XYZ-1", allowed_project_keys=["JTT", "ABB", "BEE"]) is False
+    assert is_allowed_project("XYZ-1", allowed_project_keys=["TSRC", "ABB", "BEE"]) is False
 
 
 def test_is_case_insensitive_on_the_project_key_prefix():
@@ -50,8 +50,8 @@ def test_is_case_insensitive_on_the_project_key_prefix():
     # miscased allowlist entry in config rather than trusting operator input.
     from project_scope import is_allowed_project
 
-    assert is_allowed_project("jtt-102", allowed_project_keys=["JTT"]) is True
-    assert is_allowed_project("JTT-102", allowed_project_keys=["jtt"]) is True
+    assert is_allowed_project("tsrc-102", allowed_project_keys=["TSRC"]) is True
+    assert is_allowed_project("TSRC-102", allowed_project_keys=["tsrc"]) is True
 
 
 def test_matches_multi_letter_and_numeric_suffixed_project_keys():
@@ -65,7 +65,7 @@ def test_raises_on_malformed_or_missing_issue_key(issue_key):
     from project_scope import is_allowed_project
 
     with pytest.raises(ValueError):
-        is_allowed_project(issue_key, allowed_project_keys=["JTT"])
+        is_allowed_project(issue_key, allowed_project_keys=["TSRC"])
 
 
 def test_raises_on_empty_allowlist():
@@ -75,13 +75,13 @@ def test_raises_on_empty_allowlist():
     from project_scope import is_allowed_project
 
     with pytest.raises(ValueError):
-        is_allowed_project("JTT-102", allowed_project_keys=[])
+        is_allowed_project("TSRC-102", allowed_project_keys=[])
 
 
 def test_parse_allowed_project_keys_splits_and_trims_env_var():
     from project_scope import parse_allowed_project_keys
 
-    assert parse_allowed_project_keys("JTT, ABB,BEE ") == ["JTT", "ABB", "BEE"]
+    assert parse_allowed_project_keys("TSRC, ABB,BEE ") == ["TSRC", "ABB", "BEE"]
 
 
 def test_parse_allowed_project_keys_raises_on_empty_string():
@@ -94,7 +94,7 @@ def test_parse_allowed_project_keys_raises_on_empty_string():
 def test_project_key_of_extracts_prefix_before_first_dash():
     from project_scope import project_key_of
 
-    assert project_key_of("JTT-102") == "JTT"
+    assert project_key_of("TSRC-102") == "TSRC"
     assert project_key_of("GTT2-55") == "GTT2"
 
 

@@ -1,8 +1,8 @@
 """Phase 3 tests: JSM Mirror link resolution.
 
 Written before src/jsm_mirror_link.py exists - TDD. Uses a real issuelinks
-payload captured live from icxeed.atlassian.net (JTT-102) via Atlassian Rovo,
-not an invented fixture. See tests/fixtures/jtt_102_issuelinks.json for
+payload captured live from icxeed.atlassian.net (TSRC-102) via Atlassian Rovo,
+not an invented fixture. See tests/fixtures/tsrc_102_issuelinks.json for
 provenance.
 
 Confirmed live (not assumed): on a JSM ticket, the mirrored Jira Software
@@ -29,9 +29,9 @@ def _load_fixture(name: str) -> dict:
 def test_find_mirror_issue_key_returns_real_linked_key():
     from jsm_mirror_link import find_mirror_issue_key
 
-    fixture = _load_fixture("jtt_102_issuelinks.json")
+    fixture = _load_fixture("tsrc_102_issuelinks.json")
     result = find_mirror_issue_key(fixture["issuelinks"])
-    assert result == "JJST-4"
+    assert result == "TMIR-4"
 
 
 def test_find_mirror_issue_key_returns_none_when_no_links():
@@ -46,7 +46,7 @@ def test_find_mirror_issue_key_ignores_other_link_types():
     unrelated_link = {
         "id": "99999",
         "type": {"name": "Blocks", "inward": "is blocked by", "outward": "blocks"},
-        "inwardIssue": {"key": "JTT-1", "id": "1", "fields": {}},
+        "inwardIssue": {"key": "TSRC-1", "id": "1", "fields": {}},
     }
     result = find_mirror_issue_key([unrelated_link])
     assert result is None
@@ -64,7 +64,7 @@ def test_find_mirror_issue_key_ignores_outward_direction():
     outward_only_link = {
         "id": "22222",
         "type": {"name": "JSM Mirror", "inward": "is mirrored by", "outward": "mirrors"},
-        "outwardIssue": {"key": "JTT-999", "id": "999", "fields": {}},
+        "outwardIssue": {"key": "TSRC-999", "id": "999", "fields": {}},
         # deliberately no "inwardIssue" key
     }
     result = find_mirror_issue_key([outward_only_link])
@@ -78,12 +78,12 @@ def test_find_mirror_issue_key_raises_on_multiple_mirror_links():
     silently picking one and syncing to the wrong place."""
     from jsm_mirror_link import AmbiguousMirrorLinkError, find_mirror_issue_key
 
-    fixture = _load_fixture("jtt_102_issuelinks.json")
+    fixture = _load_fixture("tsrc_102_issuelinks.json")
     duplicated = fixture["issuelinks"] + [
         {
             "id": "11790",
             "type": {"name": "JSM Mirror", "inward": "is mirrored by", "outward": "mirrors"},
-            "inwardIssue": {"key": "JJST-999", "id": "999", "fields": {}},
+            "inwardIssue": {"key": "TMIR-999", "id": "999", "fields": {}},
         }
     ]
     with pytest.raises(AmbiguousMirrorLinkError):

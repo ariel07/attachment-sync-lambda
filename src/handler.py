@@ -8,7 +8,7 @@ Two-layer design:
   - lambda_handler(): the actual AWS entry point. Thin - only wires real
     Secrets Manager + JiraClient and delegates to handle_webhook(). Not unit
     tested (nothing to assert beyond "calls the real SDKs correctly", which
-    Phase 7's live testing against JTT<->JJST covers better than a mock).
+    Phase 7's live testing against TSRC<->TMIR covers better than a mock).
 
 Event shape: API Gateway HttpApi proxy integration - event["body"] is the
 raw JSON string, event["headers"] is a dict (case varies by client, so
@@ -18,7 +18,7 @@ case-insensitive per spec).
 MIRROR CREATE+LINK (jira:issue_created branch, added below): replaces the
 native "Auto-create mirror" automation rule's Create + Branch + Link steps.
 That rule's Branch step ("find the issue I just created") was confirmed
-(Aug 17-19, live testing against GLO/CHE/SCN/JJST) to fail 100% of the time
+(Aug 17-19, live testing against GLO/CHE/SCN/TMIR) to fail 100% of the time
 on new blocks, independent of branch-type setting ("recentlycreated" vs
 "created") and independent of target project - while identical blocks
 created Aug 17 worked. Root cause unconfirmed (no Atlassian status page
@@ -103,7 +103,7 @@ def handle_webhook(
     # into jira_client or any sync/delete logic. See
     # docs/phase6-attachment-delete-sync.md and the changelog
     # investigation that ruled out jira:issue_updated for detecting
-    # deletions (JTT-102's real changelog, checked live, recorded zero
+    # deletions (TSRC-102's real changelog, checked live, recorded zero
     # removal entries for a confirmed real deletion).
     if is_attachment_deleted_event(webhook_body):
         logger.info(
@@ -139,7 +139,7 @@ def handle_webhook(
             return {"statusCode": 400, "body": f"Malformed issue_created payload: missing {exc}"}
 
         # Idempotency guard: the webhook has a confirmed double-fire behavior
-        # (seen in CloudWatch for JTT-109/JTT-110, each fired twice within
+        # (seen in CloudWatch for TSRC-109/TSRC-110, each fired twice within
         # the same second). Cheapest guard available without new infra:
         # check if this issue already has a JSM Mirror link before creating
         # another one. Accepts one extra read call per event as the cost of
@@ -242,9 +242,7 @@ def handle_webhook(
         }
 
     try:
-        result = sync_new_attachment(
-            jira_client, jsm_issue_key=issue_key, attachment_id=attachment_id
-        )
+        result = sync_new_attachment(jira_client, issue_key=issue_key, attachment_id=attachment_id)
     except AmbiguousMirrorLinkError as exc:
         logger.error("Misconfiguration on %s: %s", issue_key, exc)
         return {"statusCode": 500, "body": f"Misconfiguration: {exc}"}

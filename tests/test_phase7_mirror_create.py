@@ -1,6 +1,6 @@
 """Phase 7 tests: mirror_create.py - config-driven mirror issue creation.
 Three-way Service Request / Incident Request / Change Request branching),
-replacing the earlier JJST-family test config entirely.
+replacing the earlier TMIR-family test config entirely.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def test_create_mirror_kms_change_request_uses_change_epic():
 
 
 def test_create_mirror_links_new_issue_as_inward_and_source_as_outward():
-    """DIRECTION NOTE: empirically confirmed (Aug 19, real JTT-114/JJST-9
+    """DIRECTION NOTE: empirically confirmed (Aug 19, real TSRC-114/TMIR-9
     test) mapping - see mirror_create.py's inline comment. Getting this
     backwards doesn't error - it silently creates a link the rest of the
     system (attachment sync) can't find."""
@@ -216,11 +216,13 @@ def test_create_mirror_all_nine_client_pairs_route_correctly():
         assert client.create_issue_calls[0]["issuetype_id"] == "10121"
 
 
-def test_create_mirror_che_and_scn_use_flat_billable_account_default():
-    """Documents the known-imperfect stopgap for the two split-billing
-    clients (see module docstring) - locks in the CURRENT choice (flat
-    Billable) so a future change to resolve the real split-billing
-    question is a deliberate, visible test change, not a silent drift."""
+def test_create_mirror_che_and_scn_use_confirmed_billable_account():
+    """CHE and SCN both have two Tempo Accounts in real use (Billable +
+    Non-Billable) - Ariel confirmed Aug 22 that Billable is the correct
+    classification for mirror-created tickets going forward, resolving
+    the split-billing question flagged in the Phase 8 handoff. Locks in
+    that confirmed choice so a future change is a deliberate, visible
+    test change, not a silent drift."""
     from mirror_create import create_mirror
 
     che_client = FakeJiraClient(created_key="CHE-500")

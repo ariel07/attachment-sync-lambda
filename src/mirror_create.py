@@ -53,14 +53,14 @@ MIRROR_MAP: dict[str, MirrorTarget] = {
         "account_field_id": "customfield_10108",
         "account_option_id": "2",
     },
-    "CS": {  # -> CHE (Chelsea) - split-billing caveat, see module docstring
+    "CS": {  # -> CHE (Chelsea)
         "target_project_id": "11311",
         "task_issuetype_id": "10121",
         "sr_epic_key": "CHE-89",
         "bf_epic_key": "CHE-99",
         "cr_epic_key": "CHE-124",
         "account_field_id": "customfield_10108",
-        "account_option_id": "7",  # Billable default - see docstring caveat
+        "account_option_id": "7",
     },
     "GSP": {  # -> GLO (GlobalPay)
         "target_project_id": "11316",
@@ -80,14 +80,14 @@ MIRROR_MAP: dict[str, MirrorTarget] = {
         "account_field_id": "customfield_10108",
         "account_option_id": "3",
     },
-    "SS": {  # -> SCN (Scene to Believe / STB) - split-billing caveat, see module docstring
+    "SS": {  # -> SCN (Scene to Believe/STB)
         "target_project_id": "11312",
         "task_issuetype_id": "10121",
         "sr_epic_key": "SCN-442",
         "bf_epic_key": "SCN-443",
         "cr_epic_key": "SCN-470",
         "account_field_id": "customfield_10108",
-        "account_option_id": "5",  # Billable default - see docstring caveat
+        "account_option_id": "5",
     },
     "UOFM": {  # -> UOM (University of Melbourne)
         "target_project_id": "11345",
@@ -160,7 +160,7 @@ def create_mirror(
 
     jira_client.create_issue_link(
         link_type_id=JSM_MIRROR_LINK_TYPE_ID,
-        # DIRECTION NOTE (Aug 19, real test JTT-114/JJST-9): empirically
+        # DIRECTION NOTE (Aug 19, real test TSRC-114/TMIR-9): empirically
         # confirmed that new_key must be passed as inward_issue_key, and
         # source_issue_key as outward_issue_key, for
         # jsm_mirror_link.find_mirror_issue_key() to successfully find the

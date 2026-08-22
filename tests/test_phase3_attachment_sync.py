@@ -10,7 +10,7 @@ Rather than guess at that shape and risk building on an invented schema,
 this orchestration treats the webhook as a trigger only: it extracts the
 issue key (confirmed field), then re-fetches the issue's attachment list via
 GET /rest/api/3/issue/{key}?fields=attachment - a call whose response shape
-IS confirmed (tests/fixtures/jtt_102_attachments.json, captured live). If a
+IS confirmed (tests/fixtures/tsrc_102_attachments.json, captured live). If a
 real captured webhook payload later confirms an `attachment.id` field, that
 id is used to pick the exact attachment; if not, the most recently created
 attachment is used as a best-effort fallback (documented explicitly as a
@@ -82,20 +82,20 @@ class FakeJiraClient:
 
 
 def _issue_with_links_and_attachments() -> dict:
-    links = _load_fixture("jtt_102_issuelinks.json")["issuelinks"]
-    attachments = _load_fixture("jtt_102_attachments.json")["attachment"]
-    return {"key": "JTT-102", "fields": {"issuelinks": links, "attachment": attachments}}
+    links = _load_fixture("tsrc_102_issuelinks.json")["issuelinks"]
+    attachments = _load_fixture("tsrc_102_attachments.json")["attachment"]
+    return {"key": "TSRC-102", "fields": {"issuelinks": links, "attachment": attachments}}
 
 
 def test_sync_new_attachment_happy_path_with_explicit_attachment_id():
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
     assert result["status"] == "synced"
-    assert result["source_issue"] == "JTT-102"
-    assert result["target_issue"] == "JJST-4"
+    assert result["source_issue"] == "TSRC-102"
+    assert result["target_issue"] == "TMIR-4"
     assert result["attachment_id"] == "31711"
     assert result["filename"] == "image-20260812-021129.png"
 
@@ -104,7 +104,7 @@ def test_sync_new_attachment_happy_path_with_explicit_attachment_id():
         "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/attachment/content/31711"
     ]
     upload = client.upload_calls[0]
-    assert upload["issue_key"] == "JJST-4"
+    assert upload["issue_key"] == "TMIR-4"
     assert upload["filename"] == "image-20260812-021129.png"
     assert upload["mime_type"] == "image/png"
 
@@ -113,7 +113,7 @@ def test_sync_new_attachment_falls_back_to_most_recent_when_no_id_given():
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id=None)
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id=None)
 
     # fixture's two attachments: 31711 created 2026-08-12, 31758 created 2026-08-13 (later)
     assert result["status"] == "synced"
@@ -129,7 +129,7 @@ def test_sync_new_attachment_handles_missing_thumbnail_field_gracefully():
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31758")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31758")
     assert result["status"] == "synced"
     assert result["filename"] == "Jira (3).html"
 
@@ -137,9 +137,9 @@ def test_sync_new_attachment_handles_missing_thumbnail_field_gracefully():
 def test_sync_new_attachment_skips_when_no_mirror_link():
     from attachment_sync import sync_new_attachment
 
-    issue = {"key": "JTT-999", "fields": {"issuelinks": [], "attachment": []}}
+    issue = {"key": "TSRC-999", "fields": {"issuelinks": [], "attachment": []}}
     client = FakeJiraClient(issue)
-    result = sync_new_attachment(client, jsm_issue_key="JTT-999", attachment_id=None)
+    result = sync_new_attachment(client, issue_key="TSRC-999", attachment_id=None)
 
     assert result["status"] == "skipped"
     assert result["reason"] == "no_mirror_link"
@@ -150,7 +150,7 @@ def test_sync_new_attachment_skips_when_attachment_id_not_found():
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="does-not-exist")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="does-not-exist")
 
     assert result["status"] == "skipped"
     assert result["reason"] == "attachment_not_found"
@@ -168,10 +168,10 @@ def test_synced_result_includes_source_and_target_project():
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
-    assert result["source_project"] == "JTT"
-    assert result["target_project"] == "JJST"
+    assert result["source_project"] == "TSRC"
+    assert result["target_project"] == "TMIR"
 
 
 def test_skipped_no_mirror_link_result_includes_source_project_only():
@@ -179,11 +179,11 @@ def test_skipped_no_mirror_link_result_includes_source_project_only():
     # derive target_project from - must not be present, not an empty string.
     from attachment_sync import sync_new_attachment
 
-    issue = {"key": "JTT-999", "fields": {"issuelinks": [], "attachment": []}}
+    issue = {"key": "TSRC-999", "fields": {"issuelinks": [], "attachment": []}}
     client = FakeJiraClient(issue)
-    result = sync_new_attachment(client, jsm_issue_key="JTT-999", attachment_id=None)
+    result = sync_new_attachment(client, issue_key="TSRC-999", attachment_id=None)
 
-    assert result["source_project"] == "JTT"
+    assert result["source_project"] == "TSRC"
     assert "target_project" not in result
 
 
@@ -196,21 +196,21 @@ def test_skipped_already_synced_result_includes_both_projects():
     client = FakeJiraClient(
         _issue_with_links_and_attachments(), target_issue_data=target_with_existing
     )
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
     assert result["status"] == "skipped"
     assert result["reason"] == "already_synced"
-    assert result["source_project"] == "JTT"
-    assert result["target_project"] == "JJST"
+    assert result["source_project"] == "TSRC"
+    assert result["target_project"] == "TMIR"
 
 
 def test_sync_new_attachment_skips_when_no_attachments_at_all():
     from attachment_sync import sync_new_attachment
 
-    links = _load_fixture("jtt_102_issuelinks.json")["issuelinks"]
-    issue = {"key": "JTT-102", "fields": {"issuelinks": links, "attachment": []}}
+    links = _load_fixture("tsrc_102_issuelinks.json")["issuelinks"]
+    issue = {"key": "TSRC-102", "fields": {"issuelinks": links, "attachment": []}}
     client = FakeJiraClient(issue)
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id=None)
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id=None)
 
     assert result["status"] == "skipped"
     assert result["reason"] == "no_attachments"
@@ -225,9 +225,9 @@ def test_extract_issue_key_from_webhook_uses_only_confirmed_field():
     webhook_body = {
         "timestamp": 1735689600000,
         "webhookEvent": "attachment_created",
-        "issue": {"id": "99291", "key": "JTT-102", "self": "https://x/issue/99291", "fields": {}},
+        "issue": {"id": "99291", "key": "TSRC-102", "self": "https://x/issue/99291", "fields": {}},
     }
-    assert extract_issue_key_from_webhook(webhook_body) == "JTT-102"
+    assert extract_issue_key_from_webhook(webhook_body) == "TSRC-102"
 
 
 def test_extract_issue_key_from_webhook_raises_on_missing_issue():
@@ -246,7 +246,11 @@ def test_extract_attachment_id_from_webhook_when_present():
     with_id = {"attachment": {"id": "31711"}}
     assert extract_attachment_id_from_webhook(with_id) == "31711"
 
-    without_id = {"timestamp": 123, "webhookEvent": "attachment_created", "issue": {"key": "JTT-1"}}
+    without_id = {
+        "timestamp": 123,
+        "webhookEvent": "attachment_created",
+        "issue": {"key": "TSRC-1"},
+    }
     assert extract_attachment_id_from_webhook(without_id) is None
 
 
@@ -264,7 +268,7 @@ def test_sync_new_attachment_skips_when_already_synced():
 
     # Target (mirror) issue already has the same file, same size, as the
     # source's 31711 attachment (image-20260812-021129.png, 39183 bytes -
-    # see tests/fixtures/jtt_102_attachments.json).
+    # see tests/fixtures/tsrc_102_attachments.json).
     target_issue_data = {
         "fields": {
             "attachment": [
@@ -276,11 +280,11 @@ def test_sync_new_attachment_skips_when_already_synced():
         _issue_with_links_and_attachments(), target_issue_data=target_issue_data
     )
 
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
     assert result["status"] == "skipped"
     assert result["reason"] == "already_synced"
-    assert result["target_issue"] == "JJST-4"
+    assert result["target_issue"] == "TMIR-4"
     assert client.upload_calls == []  # must not re-upload
     assert client.download_calls == []  # must not even download - skip before that
 
@@ -304,7 +308,7 @@ def test_sync_new_attachment_proceeds_when_target_has_different_attachments():
         _issue_with_links_and_attachments(), target_issue_data=target_issue_data
     )
 
-    result = sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    result = sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
     assert result["status"] == "synced"
     assert len(client.upload_calls) == 1
@@ -312,13 +316,13 @@ def test_sync_new_attachment_proceeds_when_target_has_different_attachments():
 
 def test_sync_new_attachment_dedupe_check_uses_mirror_key_not_source_key():
     """The dedupe check's second get_issue call must target the MIRROR
-    issue (JJST-4), not the source JSM issue (JTT-102) again - confirms
+    issue (TMIR-4), not the source JSM issue (TSRC-102) again - confirms
     the integration point queries the right issue for existing
     attachments, not accidentally re-checking the source."""
     from attachment_sync import sync_new_attachment
 
     client = FakeJiraClient(_issue_with_links_and_attachments())
-    sync_new_attachment(client, jsm_issue_key="JTT-102", attachment_id="31711")
+    sync_new_attachment(client, issue_key="TSRC-102", attachment_id="31711")
 
     issue_keys_queried = [call["issue_key"] for call in client.get_issue_calls]
-    assert issue_keys_queried == ["JTT-102", "JJST-4"]
+    assert issue_keys_queried == ["TSRC-102", "TMIR-4"]

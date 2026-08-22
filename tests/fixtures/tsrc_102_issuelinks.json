@@ -1,5 +1,5 @@
 {
-  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, JTT-102, 2026-08-14. This is real, not invented.",
+  "_source": "Live REST API v3 data captured via Atlassian Rovo from icxeed.atlassian.net, TSRC-102, 2026-08-14. This is real, not invented.",
   "issuelinks": [
     {
       "id": "11789",
@@ -13,7 +13,7 @@
       },
       "inwardIssue": {
         "id": "32541",
-        "key": "JJST-4",
+        "key": "TMIR-4",
         "self": "https://api.atlassian.com/ex/jira/19ddd9fa-c177-467f-bfa3-58a0589dfb8d/rest/api/3/issue/32541",
         "fields": {
           "summary": "comment-sync rule TEST - FIXED",
